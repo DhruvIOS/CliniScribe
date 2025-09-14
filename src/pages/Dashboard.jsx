@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { User } from "@/entities/User";
 import { Consultation } from "@/entities/Consultation";
 import { InvokeLLM } from "@/integrations/Core";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
+import { containerStagger, slideInLeft, slideInUp, slideInRight, zoomIn, fadeInUp, springSnappy, pingLoop } from "@/animations";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -36,6 +38,7 @@ export default function Dashboard() {
   const [consultationDate, setConsultationDate] = useState(null);
   const [error, setError] = useState(null);
   const [recentConsultations, setRecentConsultations] = useState([]);
+  const [resultsKey, setResultsKey] = useState(0);
 
   useEffect(() => {
     checkUser();
@@ -50,6 +53,8 @@ export default function Dashboard() {
       window.location.href = "/";
     }
   };
+
+  const container = useMemo(() => containerStagger(0.15), []);
 
   const loadRecentConsultations = async () => {
     try {
@@ -71,6 +76,7 @@ export default function Dashboard() {
   const handleGenerateAdvice = async () => {
     if (!symptoms.trim()) return;
 
+    setResultsKey((k) => k + 1);
     setIsLoading(true);
     setError(null);
     setConsultationDate(new Date().toISOString());
@@ -233,7 +239,17 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-gray-900">AI Health Analysis</h2>
                   {currentAdvice && (
-                    <div className="text-sm text-gray-500">Generated {currentTime}</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span>Generated {currentTime}</span>
+                      <motion.span
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: [0.8, 1.2, 1], opacity: 1 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                        className="inline-flex"
+                      >
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      </motion.span>
+                    </div>
                   )}
                 </div>
 
@@ -259,8 +275,8 @@ export default function Dashboard() {
                     <CardContent>
                       {isLoading ? (
                         <div className="animate-pulse">
-                          <div className="h-4 bg-blue-200 rounded w-3/4 mb-2"></div>
-                          <div className="h-3 bg-blue-200 rounded w-1/2"></div>
+                          <div className="h-4 rounded w-3/4 mb-2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
+                          <div className="h-3 rounded w-1/2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
                         </div>
                       ) : (
                         <>
@@ -290,9 +306,9 @@ export default function Dashboard() {
                     <CardContent>
                       {isLoading ? (
                         <div className="animate-pulse">
-                          <div className="h-4 bg-green-200 rounded w-full mb-2"></div>
-                          <div className="h-4 bg-green-200 rounded w-5/6 mb-2"></div>
-                          <div className="h-4 bg-green-200 rounded w-3/4"></div>
+                          <div className="h-4 rounded w-full mb-2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
+                          <div className="h-4 rounded w-5/6 mb-2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
+                          <div className="h-4 rounded w-3/4 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
                         </div>
                       ) : (
                         <p className="text-gray-800">{currentAdvice?.home_remedies}</p>
@@ -313,8 +329,8 @@ export default function Dashboard() {
                     <CardContent>
                       {isLoading ? (
                         <div className="animate-pulse">
-                          <div className="h-4 bg-yellow-200 rounded w-4/5 mb-2"></div>
-                          <div className="h-4 bg-yellow-200 rounded w-3/5"></div>
+                          <div className="h-4 rounded w-4/5 mb-2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
+                          <div className="h-4 rounded w-3/5 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
                         </div>
                       ) : (
                         <p className="text-gray-800">{currentAdvice?.otc_suggestions}</p>
@@ -323,6 +339,7 @@ export default function Dashboard() {
                   </Card>
 
                   {/* Red Flags */}
+                  <motion.div variants={{ initial: { opacity: 0, x: 40 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -40 } }} transition={{ type: 'spring', stiffness: 260, damping: 20 }}>
                   <Card className="bg-red-50 border border-red-200 rounded-2xl">
                     <CardHeader className="pb-3">
                       <div className="flex items-center space-x-3">
@@ -340,9 +357,9 @@ export default function Dashboard() {
                     <CardContent>
                       {isLoading ? (
                         <div className="animate-pulse">
-                          <div className="h-4 bg-red-200 rounded w-full mb-2"></div>
-                          <div className="h-4 bg-red-200 rounded w-4/5 mb-2"></div>
-                          <div className="h-4 bg-red-200 rounded w-3/4"></div>
+                          <div className="h-4 rounded w-full mb-2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
+                          <div className="h-4 rounded w-4/5 mb-2 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
+                          <div className="h-4 rounded w-3/4 animate-shimmer bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200"></div>
                         </div>
                       ) : (
                         <>
@@ -359,6 +376,7 @@ export default function Dashboard() {
                       )}
                     </CardContent>
                   </Card>
+                  </motion.div>
                 </div>
 
                 {/* Healthcare Facilities */}
@@ -366,19 +384,32 @@ export default function Dashboard() {
                   <Card className="bg-white rounded-2xl shadow-sm border border-gray-200">
                     <CardHeader>
                       <div className="flex items-center space-x-3">
-                        <MapPin className="w-6 h-6 text-blue-600" />
+                        <motion.div
+                          initial={{ scale: 1, opacity: 1 }}
+                          animate={{ scale: [1, 1.21, 1], opacity: [1, 0.6, 1] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                          <MapPin className="w-6 h-6 text-blue-600" />
+                        </motion.div>
                         <CardTitle className="text-gray-900">Nearby Healthcare Facilities</CardTitle>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="bg-blue-50 rounded-xl p-8 text-center mb-6">
-                        <MapPin className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                        <motion.div
+                          className="w-16 h-16 mx-auto mb-4 flex items-center justify-center"
+                          initial={{ scale: 1, opacity: 1 }}
+                          animate={{ scale: [1, 1.21, 1], opacity: [1, 0.6, 1] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                          <MapPin className="w-16 h-16 text-blue-600" />
+                        </motion.div>
                         <h4 className="text-lg font-semibold text-gray-900 mb-2">Interactive Map Integration</h4>
                         <p className="text-gray-600">Find nearby clinics, pharmacies, and emergency facilities based on your location</p>
                       </div>
 
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="border border-gray-200 rounded-lg p-4">
+                      <motion.div className="grid md:grid-cols-2 gap-4" initial="initial" whileInView="animate" viewport={{ once: true }} variants={{ animate: { transition: { staggerChildren: 0.12 } } }}>
+                        <motion.div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-lg" variants={{ initial: { opacity: 0, x: -30 }, animate: { opacity: 1, x: 0 } }} whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
                           <div className="flex justify-between items-start">
                             <div>
                               <h4 className="font-medium text-gray-900">City General Hospital</h4>
@@ -386,9 +417,9 @@ export default function Dashboard() {
                             </div>
                             <span className="text-sm text-blue-600 font-medium">0.8 km</span>
                           </div>
-                        </div>
+                        </motion.div>
 
-                        <div className="border border-gray-200 rounded-lg p-4">
+                        <motion.div className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-lg" variants={{ initial: { opacity: 0, x: -30 }, animate: { opacity: 1, x: 0 } }} whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
                           <div className="flex justify-between items-start">
                             <div>
                               <h4 className="font-medium text-gray-900">MedPlus Pharmacy</h4>
@@ -396,8 +427,8 @@ export default function Dashboard() {
                             </div>
                             <span className="text-sm text-blue-600 font-medium">0.3 km</span>
                           </div>
-                        </div>
-                      </div>
+                        </motion.div>
+                      </motion.div>
                     </CardContent>
                   </Card>
                 )}
