@@ -45,7 +45,7 @@ export default function LandingPage() {
     },
     {
       icon: Shield,
-      title: "HIPAA Compliant",
+      title: "Data Security",
       description: "Your health data is protected with enterprise-grade security"
     },
     {
@@ -150,13 +150,6 @@ export default function LandingPage() {
               >
                 Features
               </motion.a>
-              <motion.a
-                whileHover={{ scale: 1.05 }}
-                href="#how-it-works"
-                className="text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
-              >
-                How it Works
-              </motion.a>
             </nav>
 
             {/* Login Button */}
@@ -243,7 +236,7 @@ export default function LandingPage() {
               className="flex flex-wrap gap-6 pt-4"
             >
               {[
-                { icon: Shield, text: "HIPAA Compliant" },
+                { icon: Shield, text: "Privacy Protected" },
                 { icon: Clock, text: "24/7 Available" },
                 { icon: Award, text: "Medically Validated" }
               ].map((item, index) => (
@@ -522,7 +515,7 @@ export default function LandingPage() {
               </div>
               <span className="text-xl font-bold">Cliniscribe</span>
             </div>
-            <p className="text-gray-400">
+            <p className="text-gray-400 hidden">
               © 2024 Cliniscribe. Transforming healthcare with AI.
             </p>
           </div>
