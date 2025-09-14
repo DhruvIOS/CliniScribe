@@ -226,7 +226,7 @@ export default function LandingPage() {
                 className="flex items-center justify-center space-x-2 px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-teal-500 dark:hover:border-teal-400 transition-all font-semibold"
               >
                 <Play className="w-5 h-5" />
-                <span>Watch Demo</span>
+                <span ><a  href="https://youtu.be/ZW3_PzuE-M4" target="_blank" > Watch Demo </a></span>
               </motion.button>
             </motion.div>
 
