@@ -13,19 +13,19 @@ export default function LandingPage() {
 
   const testimonials = [
     {
-      name: "Dr. Sarah Johnson",
+      name: "Dr. Rajvi Patel",
       role: "Family Physician",
       content: "Cliniscribe has transformed how my patients manage their health between visits.",
       rating: 5
     },
     {
-      name: "Michael Chen",
+      name: "Mitesh Kumar",
       role: "Patient",
       content: "Got instant guidance for my symptoms at 2 AM. Saved me an unnecessary ER visit!",
       rating: 5
     },
     {
-      name: "Lisa Rodriguez",
+      name: "Elizabetha Smith",
       role: "Mother of 3",
       content: "Peace of mind knowing I can get reliable health advice anytime for my family.",
       rating: 5
