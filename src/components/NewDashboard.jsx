@@ -9,23 +9,25 @@ export default function NewDashboard() {
   const [userPhoto, setUserPhoto] = useState('');
   const [symptoms, setSymptoms] = useState('');
   const [characterCount, setCharacterCount] = useState(0);
-  const navigate = useNavigate();
+  const [userLocation, setUserLocation] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalConsultations: 0,
+    thisMonthConsultations: 0,
+    healthScore: 'Good',
+  });
+  const [recentConsultations, setRecentConsultations] = useState([]);
 
+  const navigate = useNavigate();
   const { state } = useLocation();
   const consultation = state?.consultation;
 
-
-
+  // Load user info from localStorage
   useEffect(() => {
-    // Get user info from localStorage (set during login)
-    const storedUserName = localStorage.getItem('userName') || 'User';
-    const storedUserPhoto = localStorage.getItem('userPhoto') || '';
-    setUserName(storedUserName);
-    setUserPhoto(storedUserPhoto);
+    setUserName(localStorage.getItem('userName') || 'User');
+    setUserPhoto(localStorage.getItem('userPhoto') || '');
   }, []);
 
-  const [userLocation, setUserLocation] = useState(null);
-
+  // Get user geolocation
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -45,6 +47,32 @@ export default function NewDashboard() {
     }
   }, []);
 
+  // Fetch dashboard stats
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const stats = await ApiService.getDashboardStats(localStorage.getItem('userId'));
+        setDashboardStats(stats);
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
+
+  // Fetch recent consultations
+  useEffect(() => {
+    const fetchRecentConsultations = async () => {
+      try {
+        const data = await ApiService.getRecentConsultations(localStorage.getItem('userId'));
+        setRecentConsultations(data);
+      } catch (err) {
+        console.error('Error fetching recent consultations:', err);
+      }
+    };
+    fetchRecentConsultations();
+  }, []);
+
   const handleSymptomsChange = (e) => {
     const value = e.target.value;
     if (value.length <= 500) {
@@ -62,36 +90,18 @@ export default function NewDashboard() {
           userId: localStorage.getItem('userId'),
           inputType: 'text',
           symptoms,
-          location: userLocation
-        })
+          location: userLocation,
+        }),
       })
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           navigate('/consultation-results', { state: { consultation: data } });
         })
-        .catch(err => console.error(err));
+        .catch((err) => console.error(err));
     } else if (!userLocation) {
       alert('Please allow location access to get nearby pharmacies.');
     }
   };
-
-  const recentConsultations = [
-    {
-      id: 1,
-      title: 'Viral or bacterial throat infection (such as...',
-      date: '9/13/2025'
-    },
-    {
-      id: 2,
-      title: 'Viral pharyngitis (common cold or flu)',
-      date: '9/13/2025'
-    },
-    {
-      id: 3,
-      title: 'Viral Pharyngitis (also known as a common col...',
-      date: '9/13/2025'
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,8 +109,12 @@ export default function NewDashboard() {
         {/* Header with User Profile */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back, {userName}!</h1>
-            <p className="text-gray-600">Describe your symptoms and get intelligent health guidance</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back, {userName}!
+            </h1>
+            <p className="text-gray-600">
+              Describe your symptoms and get intelligent health guidance
+            </p>
           </div>
 
           {/* User Profile */}
@@ -119,7 +133,6 @@ export default function NewDashboard() {
                   navigate('/login');
                 } catch (error) {
                   console.error('Sign-out error:', error);
-                  // Fallback to manual cleanup
                   localStorage.clear();
                   navigate('/login');
                 }
@@ -140,8 +153,12 @@ export default function NewDashboard() {
                   <MessageSquare className="w-6 h-6 text-teal-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Describe Your Symptoms</h2>
-                  <p className="text-gray-600">Be as detailed as possible for better analysis</p>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Describe Your Symptoms
+                  </h2>
+                  <p className="text-gray-600">
+                    Be as detailed as possible for better analysis
+                  </p>
                 </div>
               </div>
 
@@ -149,7 +166,7 @@ export default function NewDashboard() {
                 <textarea
                   value={symptoms}
                   onChange={handleSymptomsChange}
-                  placeholder="For example: I have fever and headache for 2 days. The fever started yesterday evening around 6 PM and reached 101°F. I also have a mild sore throat and feel very tired..."
+                  placeholder="For example: I have fever and headache for 2 days..."
                   className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
                 <div className="flex items-center justify-between mt-2">
@@ -183,7 +200,7 @@ export default function NewDashboard() {
                     <TrendingUp className="w-5 h-5 text-teal-600" />
                     <span className="text-gray-700">Consultations</span>
                   </div>
-                  <span className="font-semibold text-gray-900">5</span>
+                  <span className="font-semibold text-gray-900">{dashboardStats.totalConsultations}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -191,7 +208,7 @@ export default function NewDashboard() {
                     <Calendar className="w-5 h-5 text-teal-600" />
                     <span className="text-gray-700">This Month</span>
                   </div>
-                  <span className="font-semibold text-gray-900">5</span>
+                  <span className="font-semibold text-gray-900">{dashboardStats.thisMonthConsultations}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -201,7 +218,9 @@ export default function NewDashboard() {
                     </div>
                     <span className="text-gray-700">Health Score</span>
                   </div>
-                  <span className="font-semibold text-green-600">Good</span>
+                  <span className={`font-semibold ${dashboardStats.healthScore === 'Good' ? 'text-green-600' : 'text-red-600'}`}>
+                    {dashboardStats.healthScore}
+                  </span>
                 </div>
               </div>
             </div>
@@ -211,14 +230,18 @@ export default function NewDashboard() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Consultations</h3>
 
               <div className="space-y-4">
-                {recentConsultations.map((consultation) => (
-                  <div key={consultation.id} className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
-                    <p className="text-sm text-gray-900 font-medium line-clamp-2 mb-1">
-                      {consultation.title}
-                    </p>
-                    <p className="text-xs text-gray-500">{consultation.date}</p>
-                  </div>
-                ))}
+                {recentConsultations.length === 0 ? (
+                  <p className="text-sm text-gray-500">No recent consultations</p>
+                ) : (
+                  recentConsultations.map((consultation) => (
+                    <div key={consultation.id} className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
+                      <p className="text-sm text-gray-900 font-medium line-clamp-2 mb-1">
+                        {consultation.title}
+                      </p>
+                      <p className="text-xs text-gray-500">{new Date(consultation.date).toLocaleDateString()}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
