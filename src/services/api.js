@@ -35,7 +35,7 @@ class ApiService {
   async loginWithGoogle(user) {
     return this.request('/auth/google', {
       method: 'POST',
-      body: { user },
+      body: user, 
     });
   }
 
@@ -89,3 +89,4 @@ class ApiService {
 }
 
 export default new ApiService();
+
