@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle, AlertTriangle, Pill, MapPin } from 'lucide-react';
+import { Clock, Pill, AlertTriangle, MapPin } from 'lucide-react';
+import FacilityMap from './FacilityMap.jsx';
 
 export default function ConsultationResults() {
   const navigate = useNavigate();
@@ -12,15 +13,28 @@ export default function ConsultationResults() {
 
   const nearbyFacilities = consultation?.nearby || [];
 
+  const [userLocation, setUserLocation] = React.useState(null);
+
+  React.useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setUserLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+      });
+    }
+  }, []);
+
   const currentTime = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true
+    hour12: true,
   });
 
   const likelyCondition = analysis?.illness || 'Symptoms unclear, please consult a doctor';
-  const homeRemedies = analysis?.homeRemedies || ['Stay well-hydrated', 'Rest as much as possible', 'Use a cool compress'];
+  const homeRemedies = analysis?.homeRemedies || ['Stay well-hydrated', 'Rest as much as possible'];
   const otcMedicines = analysis?.otcMedicines || ['Acetaminophen (Tylenol)', 'Ibuprofen (Advil)'];
   const redFlags = analysis?.redFlags || ['Fever higher than 103°F (39.4°C)', 'Persists longer than three days'];
 
@@ -40,7 +54,7 @@ export default function ConsultationResults() {
           <div className="text-sm text-gray-500">Generated {currentTime}</div>
         </div>
 
-        {/* Analysis Results Grid */}
+        {/* Analysis Grid */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* Likely Condition */}
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
@@ -75,7 +89,7 @@ export default function ConsultationResults() {
             </ul>
           </div>
 
-          {/* OTC Suggestions */}
+          {/* OTC Medicines */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-yellow-600 rounded-xl flex items-center justify-center">
@@ -123,35 +137,31 @@ export default function ConsultationResults() {
             <h3 className="text-xl font-semibold text-gray-900">Nearby Healthcare Facilities</h3>
           </div>
 
-          {/* Interactive Map Placeholder */}
-          <div className="bg-blue-50 rounded-xl p-8 text-center mb-6">
-            <MapPin className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">Interactive Map Integration</h4>
-            <p className="text-gray-600">
-              Find nearby clinics, pharmacies, and emergency facilities based on your location
-            </p>
-          </div>
+          {/* Google Map */}
+          {userLocation && (
+            <FacilityMap
+              userLocation={userLocation}
+              facilities={nearbyFacilities}
+              googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+            />
+          )}
 
           {/* Facilities List */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
             {nearbyFacilities.map((place, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-medium text-gray-900">{place.name}</h4>
-                    <p className="text-sm text-gray-600">{place.address}</p>
-                    {place.mapsUrl && (
-                      <a
-                        href={place.mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 text-sm hover:underline mt-1 block"
-                      >
-                        View on Map
-                      </a>
-                    )}
-                  </div>
-                </div>
+                <h4 className="font-medium text-gray-900">{place.name}</h4>
+                <p className="text-sm text-gray-600">{place.address}</p>
+                {place.mapsUrl && (
+                  <a
+                    href={place.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 text-sm hover:underline mt-1 block"
+                  >
+                    View on Map
+                  </a>
+                )}
               </div>
             ))}
           </div>
