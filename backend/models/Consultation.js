@@ -8,6 +8,7 @@ const ConsultationSchema = new mongoose.Schema({
   soap: { S: String, O: String, A: String, P: String },
   advice: {
     illness: String,
+    confidence: Number,
     homeRemedies: [String],
     otcMedicines: [String],
     redFlags: [String],
@@ -23,6 +24,12 @@ const ConsultationSchema = new mongoose.Schema({
       mapsUrl: { type: String },
     }
   ],
+  recovery: {
+    isResolved: { type: Boolean, default: null },
+    resolvedAt: { type: Date },
+    followUpRequired: { type: Boolean, default: false },
+    recoveryNotes: { type: String }
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Consultation', ConsultationSchema);

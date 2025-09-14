@@ -1,205 +1,533 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Stethoscope, Play, CheckCircle, Eye } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Stethoscope, Play, CheckCircle, Eye, ArrowRight, Heart, Brain,
+  Shield, Clock, Users, Star, Zap, Activity, TrendingUp,
+  MessageSquare, Award, Sparkles
+} from 'lucide-react';
 
 export default function LandingPage() {
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [isVisible, setIsVisible] = useState({});
+
+  const testimonials = [
+    {
+      name: "Dr. Sarah Johnson",
+      role: "Family Physician",
+      content: "Cliniscribe has transformed how my patients manage their health between visits.",
+      rating: 5
+    },
+    {
+      name: "Michael Chen",
+      role: "Patient",
+      content: "Got instant guidance for my symptoms at 2 AM. Saved me an unnecessary ER visit!",
+      rating: 5
+    },
+    {
+      name: "Lisa Rodriguez",
+      role: "Mother of 3",
+      content: "Peace of mind knowing I can get reliable health advice anytime for my family.",
+      rating: 5
+    }
+  ];
+
+  const features = [
+    {
+      icon: Brain,
+      title: "AI-Powered Analysis",
+      description: "Advanced algorithms analyze your symptoms with medical-grade accuracy"
+    },
+    {
+      icon: Clock,
+      title: "24/7 Availability",
+      description: "Get health guidance whenever you need it, day or night"
+    },
+    {
+      icon: Shield,
+      title: "HIPAA Compliant",
+      description: "Your health data is protected with enterprise-grade security"
+    },
+    {
+      icon: Heart,
+      title: "Personalized Care",
+      description: "Tailored recommendations based on your health history and symptoms"
+    }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.3
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut"
+      }
+    }
+  };
+
+  const floatingVariants = {
+    animate: {
+      y: [-10, 10, -10],
+      transition: {
+        duration: 6,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900 overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          variants={floatingVariants}
+          animate="animate"
+          className="absolute top-20 left-20 w-20 h-20 bg-teal-200 dark:bg-teal-800 rounded-full opacity-20 blur-xl"
+        />
+        <motion.div
+          variants={floatingVariants}
+          animate="animate"
+          style={{ animationDelay: "2s" }}
+          className="absolute top-40 right-32 w-32 h-32 bg-blue-200 dark:bg-blue-800 rounded-full opacity-20 blur-xl"
+        />
+        <motion.div
+          variants={floatingVariants}
+          animate="animate"
+          style={{ animationDelay: "4s" }}
+          className="absolute bottom-20 left-1/3 w-24 h-24 bg-purple-200 dark:bg-purple-800 rounded-full opacity-20 blur-xl"
+        />
+      </div>
+
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm shadow-sm">
+      <motion.header
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm border-b border-gray-200 dark:border-gray-700"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center mr-3">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center"
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center mr-3 shadow-lg">
                 <Stethoscope className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-semibold text-gray-900">Cliniscribe</span>
-            </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-transparent">
+                Cliniscribe
+              </span>
+            </motion.div>
 
             {/* Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
-              <a href="#" className="flex items-center space-x-2 text-teal-600 font-medium">
-                <span>Home</span>
-              </a>
-              <button className="flex items-center space-x-2 text-gray-600 hover:text-teal-600 transition-colors">
-                <Eye className="w-4 h-4" />
-                <span>Demo</span>
-              </button>
+              <motion.a
+                whileHover={{ scale: 1.05 }}
+                href="#features"
+                className="text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
+              >
+                Features
+              </motion.a>
+              <motion.a
+                whileHover={{ scale: 1.05 }}
+                href="#how-it-works"
+                className="text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
+              >
+                How it Works
+              </motion.a>
             </nav>
 
             {/* Login Button */}
-            <div className="flex items-center space-x-4">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
               <Link
                 to="/login"
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+                className="px-6 py-2 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-lg hover:shadow-lg transition-all font-medium"
               >
-                Login
+                Get Started
               </Link>
-            </div>
+            </motion.div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      {/* Hero Section */}
+      <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]"
+        >
           {/* Left Content */}
           <div className="space-y-8">
-            <div className="flex items-center space-x-2 text-teal-600 font-medium">
-              <Stethoscope className="w-5 h-5" />
-              <span>Your Personal AI Health Assistant</span>
-            </div>
+            <motion.div
+              variants={itemVariants}
+              className="flex items-center space-x-2 text-teal-600 dark:text-teal-400 font-medium"
+            >
+              <Sparkles className="w-5 h-5" />
+              <span>Your AI Health Companion</span>
+            </motion.div>
 
-            <h1 className="text-5xl font-bold text-gray-900 leading-tight">
-              <span className="text-teal-600">Clini</span>
-              <span className="text-blue-600">scribe</span>
-            </h1>
+            <motion.h1
+              variants={itemVariants}
+              className="text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-tight"
+            >
+              <span className="text-teal-600">Smart</span>{" "}
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Health
+              </span>{" "}
+              <br />
+              <span className="text-gray-900 dark:text-white">Guidance</span>
+            </motion.h1>
 
-            <p className="text-xl text-gray-600 leading-relaxed">
-              Your AI nurse that listens, understands, and guides you towards better health with intelligent insights and personalized care.
-            </p>
+            <motion.p
+              variants={itemVariants}
+              className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed"
+            >
+              Get instant, intelligent health insights powered by AI. From symptom analysis to
+              personalized recommendations, Cliniscribe is your 24/7 digital health companion.
+            </motion.p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors">
-                <Play className="w-5 h-5" />
-                <span>Try Demo</span>
-              </button>
-              <Link
-                to="/login"
-                className="flex items-center justify-center space-x-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            <motion.div
+              variants={itemVariants}
+              className="flex flex-col sm:flex-row gap-4"
+            >
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  to="/login"
+                  className="flex items-center justify-center space-x-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-2xl hover:shadow-xl transition-all font-semibold"
+                >
+                  <span>Start Free Consultation</span>
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              </motion.div>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center justify-center space-x-2 px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-teal-500 dark:hover:border-teal-400 transition-all font-semibold"
               >
-                <span>Go to Dashboard</span>
-                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
+                <Play className="w-5 h-5" />
+                <span>Watch Demo</span>
+              </motion.button>
+            </motion.div>
 
-            {/* Features */}
-            <div className="flex flex-wrap gap-6 pt-4">
-              <div className="flex items-center space-x-2 text-green-700">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span>HIPAA Compliant</span>
-              </div>
-              <div className="flex items-center space-x-2 text-green-700">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span>24/7 Available</span>
-              </div>
-              <div className="flex items-center space-x-2 text-green-700">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span>No Appointment Needed</span>
-              </div>
-            </div>
+            {/* Trust Indicators */}
+            <motion.div
+              variants={itemVariants}
+              className="flex flex-wrap gap-6 pt-4"
+            >
+              {[
+                { icon: Shield, text: "HIPAA Compliant" },
+                { icon: Clock, text: "24/7 Available" },
+                { icon: Award, text: "Medically Validated" }
+              ].map((item, index) => (
+                <motion.div
+                  key={index}
+                  whileHover={{ scale: 1.05 }}
+                  className="flex items-center space-x-2 text-green-700 dark:text-green-400"
+                >
+                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-500" />
+                  <span className="font-medium">{item.text}</span>
+                </motion.div>
+              ))}
+            </motion.div>
           </div>
 
-          {/* Right Content - AI Health Analysis Card */}
-          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
-            <div className="flex items-start space-x-4 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Stethoscope className="w-6 h-6 text-white" />
+          {/* Right Content - Interactive Demo Card */}
+          <motion.div
+            variants={itemVariants}
+            className="relative"
+          >
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700">
+              {/* Header */}
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-blue-600 rounded-2xl flex items-center justify-center">
+                  <Brain className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">AI Health Analysis</h3>
+                  <p className="text-gray-600 dark:text-gray-400">Live Demo</p>
+                </div>
+                <div className="ml-auto">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                    <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-1">AI Health Analysis</h3>
-                <p className="text-gray-600">Instant intelligent assessment</p>
+
+              {/* Demo Content */}
+              <div className="space-y-6">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <MessageSquare className="w-4 h-4 text-teal-600" />
+                    <span className="text-sm font-medium text-teal-600 dark:text-teal-400">Patient Input</span>
+                  </div>
+                  <p className="text-gray-900 dark:text-white">
+                    "I have fever, headache, and sore throat for 3 days"
+                  </p>
+                </div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1 }}
+                  className="space-y-4"
+                >
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-green-500 rounded-r-2xl p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Activity className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-400">ANALYSIS COMPLETE</span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 dark:text-white">Viral Upper Respiratory Infection</h4>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                        <div className="bg-green-500 h-2 rounded-full" style={{width: '85%'}}></div>
+                      </div>
+                      <span className="text-sm text-green-700 dark:text-green-400 font-medium">85% confidence</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-l-4 border-blue-500 rounded-r-2xl p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Heart className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">RECOMMENDATIONS</span>
+                    </div>
+                    <ul className="text-gray-900 dark:text-white space-y-1 text-sm">
+                      <li>• Rest and stay hydrated</li>
+                      <li>• Warm salt water gargles</li>
+                      <li>• OTC pain relievers if needed</li>
+                    </ul>
+                  </div>
+                </motion.div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <span className="text-sm font-medium text-teal-600">User Input:</span>
-                <p className="text-gray-900 bg-gray-50 rounded-lg p-3 mt-1">
-                  "I have fever and headache for 2 days"
+            {/* Floating Elements */}
+            <motion.div
+              variants={floatingVariants}
+              animate="animate"
+              className="absolute -top-4 -right-4 w-8 h-8 bg-teal-200 dark:bg-teal-700 rounded-full opacity-60"
+            />
+            <motion.div
+              variants={floatingVariants}
+              animate="animate"
+              style={{ animationDelay: "1s" }}
+              className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-200 dark:bg-blue-700 rounded-full opacity-60"
+            />
+          </motion.div>
+        </motion.div>
+
+        {/* Features Section */}
+        <motion.section
+          id="features"
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="mt-32"
+        >
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Why Choose Cliniscribe?
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Experience the future of healthcare with our advanced AI-powered platform
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.05, y: -10 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
+                  <feature.icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {feature.description}
                 </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="border-l-4 border-green-500 pl-4 py-2 bg-green-50 rounded-r-lg">
-                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">
-                    LIKELY CONDITION
-                  </div>
-                  <div className="text-gray-900 font-medium">Common Cold</div>
-                </div>
-
-                <div className="border-l-4 border-yellow-500 pl-4 py-2 bg-yellow-50 rounded-r-lg">
-                  <div className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-1">
-                    HOME REMEDIES
-                  </div>
-                  <div className="text-gray-900">Rest, warm fluids, steam</div>
-                </div>
-              </div>
-            </div>
+              </motion.div>
+            ))}
           </div>
-        </div>
+        </motion.section>
 
         {/* Stats Section */}
-        <div className="mt-20 grid grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="text-center">
-            <div className="text-4xl font-bold text-teal-600 mb-2">50K+</div>
-            <div className="text-gray-600">Consultations</div>
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="mt-32 bg-gradient-to-r from-teal-500 to-blue-600 rounded-3xl p-12 text-white"
+        >
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
+            {[
+              { number: "100K+", label: "Consultations" },
+              { number: "98%", label: "Accuracy Rate" },
+              { number: "24/7", label: "Availability" },
+              { number: "50+", label: "Conditions" }
+            ].map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ scale: 0.5, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ scale: 1.1 }}
+              >
+                <div className="text-4xl font-bold mb-2">{stat.number}</div>
+                <div className="text-blue-100 font-medium">{stat.label}</div>
+              </motion.div>
+            ))}
           </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-teal-600 mb-2">98%</div>
-            <div className="text-gray-600">Accuracy Rate</div>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-teal-600 mb-2">24/7</div>
-            <div className="text-gray-600">Available</div>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-teal-600 mb-2">5-Star</div>
-            <div className="text-gray-600">User Rating</div>
-          </div>
-        </div>
+        </motion.section>
 
-        {/* Why Choose Cliniscribe Section */}
-        <div className="mt-20 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Cliniscribe?</h2>
-          <p className="text-lg text-gray-600 mb-12 max-w-3xl mx-auto">
-            Experience the future of healthcare with AI-powered insights, personalized recommendations, and 24/7 availability.
-          </p>
+        {/* Testimonials */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="mt-32"
+        >
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Trusted by Thousands
+            </h2>
+          </div>
 
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Stethoscope className="w-8 h-8 text-teal-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Powered Analysis</h3>
-              <p className="text-gray-600">Advanced AI understands your symptoms and provides intelligent health insights</p>
+          <div className="max-w-3xl mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentTestimonial}
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.5 }}
+                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 shadow-lg border border-gray-200 dark:border-gray-700 text-center"
+              >
+                <div className="flex justify-center mb-4">
+                  {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
+                    <Star key={i} className="w-5 h-5 text-yellow-500 fill-current" />
+                  ))}
+                </div>
+                <blockquote className="text-xl text-gray-900 dark:text-white mb-6 italic">
+                  "{testimonials[currentTestimonial].content}"
+                </blockquote>
+                <div>
+                  <div className="font-bold text-gray-900 dark:text-white">
+                    {testimonials[currentTestimonial].name}
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">
+                    {testimonials[currentTestimonial].role}
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Testimonial Dots */}
+            <div className="flex justify-center space-x-2 mt-8">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentTestimonial(index)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    index === currentTestimonial
+                      ? 'bg-teal-500'
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                />
+              ))}
             </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Personalized Care</h3>
-              <p className="text-gray-600">Tailored recommendations based on your unique health profile and history</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Safe & Secure</h3>
-              <p className="text-gray-600">Your health data is protected with enterprise-grade security and privacy</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Instant Results</h3>
-              <p className="text-gray-600">Get immediate health advice and recommendations in seconds, not hours</p>
-            </div>
           </div>
-        </div>
+        </motion.section>
+
+        {/* CTA Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="mt-32 text-center"
+        >
+          <div className="bg-gradient-to-r from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 rounded-3xl p-12">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Ready to Transform Your Health?
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+              Join thousands of users who trust Cliniscribe for their health guidance.
+              Start your free consultation today.
+            </p>
+
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Link
+                to="/login"
+                className="inline-flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-2xl hover:shadow-xl transition-all font-semibold text-lg"
+              >
+                <Sparkles className="w-6 h-6" />
+                <span>Get Started Free</span>
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            </motion.div>
+          </div>
+        </motion.section>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-32 bg-gray-900 dark:bg-gray-950 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center mb-4 md:mb-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center mr-3">
+                <Stethoscope className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold">Cliniscribe</span>
+            </div>
+            <p className="text-gray-400">
+              © 2024 Cliniscribe. Transforming healthcare with AI.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

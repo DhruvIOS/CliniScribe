@@ -64,11 +64,24 @@ class ApiService {
 
   // History methods
   async getConsultationHistory(userId = 'user123') {
-    return this.request(`/history/${userId}`);
+    try {
+      const data = await this.request(`/history/${userId}`);
+      return data.history || data;
+    } catch (error) {
+      console.error('Error fetching consultation history:', error);
+      return [];
+    }
   }
 
   async getConsultationById(id) {
     return this.request(`/history/entry/${id}`);
+  }
+
+  async updateRecoveryStatus(consultationId, isResolved, recoveryNotes = '', followUpRequired = false) {
+    return this.request(`/history/recovery/${consultationId}`, {
+      method: 'PUT',
+      body: { isResolved, recoveryNotes, followUpRequired }
+    });
   }
 
   // Maps methods
@@ -85,6 +98,81 @@ class ApiService {
       method: 'POST',
       body: { symptoms },
     });
+  }
+
+  // Dashboard methods
+  async getDashboardStats(userId) {
+    try {
+      const consultations = await this.getConsultationHistory(userId);
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const thisMonthConsultations = consultations.filter(consultation => {
+        const consultationDate = new Date(consultation.createdAt || consultation.date);
+        return consultationDate.getMonth() === currentMonth &&
+               consultationDate.getFullYear() === currentYear;
+      }).length;
+
+      const healthScore = this.calculateHealthScore(consultations);
+
+      return {
+        totalConsultations: consultations.length,
+        thisMonthConsultations,
+        healthScore
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      return {
+        totalConsultations: 0,
+        thisMonthConsultations: 0,
+        healthScore: 'Good'
+      };
+    }
+  }
+
+  async getRecentConsultations(userId, limit = 5) {
+    try {
+      const consultations = await this.getConsultationHistory(userId);
+      return consultations
+        .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
+        .slice(0, limit)
+        .map(consultation => ({
+          id: consultation.id || consultation._id,
+          title: consultation.symptoms?.substring(0, 50) + '...' || 'Consultation',
+          date: consultation.createdAt || consultation.date
+        }));
+    } catch (error) {
+      console.error('Error fetching recent consultations:', error);
+      return [];
+    }
+  }
+
+  calculateHealthScore(consultations) {
+    if (!consultations || consultations.length === 0) {
+      return 'Good';
+    }
+
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+    const recentConsultations = consultations.filter(consultation => {
+      const consultationDate = new Date(consultation.createdAt || consultation.date);
+      return consultationDate >= lastMonth;
+    });
+
+    const consultationFrequency = recentConsultations.length;
+
+    if (consultationFrequency === 0) {
+      return 'Excellent';
+    } else if (consultationFrequency <= 2) {
+      return 'Good';
+    } else if (consultationFrequency <= 5) {
+      return 'Fair';
+    } else {
+      return 'Poor';
+    }
   }
 }
 

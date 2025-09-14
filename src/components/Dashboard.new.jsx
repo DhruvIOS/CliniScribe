@@ -1,19 +1,82 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic, FileText, MapPin, CheckSquare, Clock, TrendingUp, AlertCircle, Heart, Home, ArrowLeft } from 'lucide-react';
+import { Mic, FileText, MapPin, CheckSquare, Clock, TrendingUp, AlertCircle, Heart, Home, ArrowLeft, BarChart3, X } from 'lucide-react';
+import ApiService from '../services/api.js';
+import HealthAnalytics from './HealthAnalytics.jsx';
 
 const Dashboard = () => {
-  const recentConsultations = [
-    { id: 1, date: '2024-01-15', condition: 'Common Cold', status: 'completed' },
-    { id: 2, date: '2024-01-12', condition: 'Headache', status: 'follow-up' },
-    { id: 3, date: '2024-01-08', condition: 'Back Pain', status: 'completed' },
-  ];
+  const [consultations, setConsultations] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalConsultations: 0,
+    thisMonthConsultations: 0,
+    healthScore: 'Good',
+  });
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const pendingActions = [
-    { id: 1, task: 'Take prescribed medication (Paracetamol)', due: 'Every 6 hours' },
-    { id: 2, task: 'Schedule follow-up appointment', due: 'Within 3 days' },
-    { id: 3, task: 'Monitor symptoms', due: 'Daily' },
-  ];
+  // Fetch real consultation data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const userId = localStorage.getItem('userId') || 'user123';
+
+        // Fetch consultations and dashboard stats
+        const [consultationData, stats] = await Promise.all([
+          ApiService.getConsultationHistory(userId),
+          ApiService.getDashboardStats(userId)
+        ]);
+
+        setConsultations(consultationData);
+        setDashboardStats(stats);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Generate recent consultations from real data
+  const recentConsultations = consultations.slice(0, 3).map(consultation => ({
+    id: consultation._id,
+    date: new Date(consultation.createdAt).toLocaleDateString(),
+    condition: consultation.advice?.illness || 'Health Consultation',
+    status: 'completed'
+  }));
+
+  // Generate pending actions from real consultations
+  const pendingActions = consultations.slice(0, 3).flatMap(consultation => {
+    const actions = [];
+    if (consultation.advice?.otcMedicines?.length > 0) {
+      actions.push({
+        id: `${consultation._id}-medication`,
+        task: `Take ${consultation.advice.otcMedicines[0]}`,
+        due: 'As prescribed'
+      });
+    }
+    if (consultation.advice?.homeRemedies?.length > 0) {
+      actions.push({
+        id: `${consultation._id}-remedy`,
+        task: consultation.advice.homeRemedies[0],
+        due: 'Daily'
+      });
+    }
+    return actions;
+  }).slice(0, 3);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
@@ -86,11 +149,14 @@ const Dashboard = () => {
               </div>
             </button>
 
-            <button className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-blue-200">
+            <button
+              onClick={() => setShowAnalytics(true)}
+              className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all border border-gray-100 hover:border-blue-200"
+            >
               <div className="flex flex-col items-center text-center">
-                <CheckSquare className="h-8 w-8 text-purple-600 mb-2" />
-                <span className="font-medium text-gray-900">Action Items</span>
-                <span className="text-sm text-gray-500">Track progress</span>
+                <BarChart3 className="h-8 w-8 text-purple-600 mb-2" />
+                <span className="font-medium text-gray-900">Health Analytics</span>
+                <span className="text-sm text-gray-500">View charts</span>
               </div>
             </button>
           </div>
@@ -105,23 +171,33 @@ const Dashboard = () => {
                   Recent Consultations
                 </h3>
                 <div className="space-y-3">
-                  {recentConsultations.map((consultation) => (
-                    <div key={consultation.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{consultation.condition}</p>
-                        <p className="text-sm text-gray-500">{consultation.date}</p>
+                  {recentConsultations.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Clock className="w-8 h-8 text-gray-400" />
                       </div>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          consultation.status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {consultation.status}
-                      </span>
+                      <p className="text-sm text-gray-500 mb-2">No consultations yet</p>
+                      <p className="text-xs text-gray-400">Start your first consultation above</p>
                     </div>
-                  ))}
+                  ) : (
+                    recentConsultations.map((consultation) => (
+                      <div key={consultation.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900">{consultation.condition}</p>
+                          <p className="text-sm text-gray-500">{consultation.date}</p>
+                        </div>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            consultation.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {consultation.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <Link
                   to="/history"
@@ -140,18 +216,28 @@ const Dashboard = () => {
                   Pending Actions
                 </h3>
                 <div className="space-y-3">
-                  {pendingActions.map((action) => (
-                    <div key={action.id} className="flex items-start p-3 bg-gray-50 rounded-lg">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                      <div className="ml-3 flex-1">
-                        <p className="font-medium text-gray-900">{action.task}</p>
-                        <p className="text-sm text-gray-500">{action.due}</p>
+                  {pendingActions.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CheckSquare className="w-8 h-8 text-gray-400" />
                       </div>
+                      <p className="text-sm text-gray-500 mb-2">No pending actions</p>
+                      <p className="text-xs text-gray-400">Complete consultations to see action items</p>
                     </div>
-                  ))}
+                  ) : (
+                    pendingActions.map((action) => (
+                      <div key={action.id} className="flex items-start p-3 bg-gray-50 rounded-lg">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <div className="ml-3 flex-1">
+                          <p className="font-medium text-gray-900">{action.task}</p>
+                          <p className="text-sm text-gray-500">{action.due}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <button className="w-full mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium">
                   Manage All Actions
@@ -162,27 +248,55 @@ const Dashboard = () => {
 
           {/* Health Insights */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
-              Health Insights
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
+                Health Insights
+              </h3>
+              <button
+                onClick={() => setShowAnalytics(true)}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                View Analytics
+              </button>
+            </div>
             <div className="grid md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">85%</p>
-                <p className="text-sm text-gray-600">Treatment Adherence</p>
+                <p className="text-2xl font-bold text-green-600">{dashboardStats.healthScore}</p>
+                <p className="text-sm text-gray-600">Health Score</p>
               </div>
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">12</p>
-                <p className="text-sm text-gray-600">Consultations This Year</p>
+                <p className="text-2xl font-bold text-blue-600">{dashboardStats.totalConsultations}</p>
+                <p className="text-sm text-gray-600">Total Consultations</p>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-2xl font-bold text-purple-600">3</p>
-                <p className="text-sm text-gray-600">Active Care Plans</p>
+                <p className="text-2xl font-bold text-purple-600">{dashboardStats.thisMonthConsultations}</p>
+                <p className="text-sm text-gray-600">This Month</p>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Analytics Modal */}
+      {showAnalytics && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Health Analytics Dashboard</h2>
+              <button
+                onClick={() => setShowAnalytics(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <HealthAnalytics consultations={consultations} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
