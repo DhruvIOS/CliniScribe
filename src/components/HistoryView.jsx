@@ -1,56 +1,47 @@
-import React, { useState } from 'react';
-import { Calendar, FileText, TrendingUp, Search, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, FileText, TrendingUp, Search, Filter, Eye, Clock, MapPin, ArrowLeft, Pill, Home, AlertTriangle, Video } from 'lucide-react';
+import ApiService from '../services/api.js';
 
-const HistoryView = ({ onBack }) => {
+const HistoryView = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCondition, setFilterCondition] = useState('all');
+  const [consultations, setConsultations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedConsultation, setSelectedConsultation] = useState(null);
 
-  const consultations = [
-    {
-      id: 1,
-      date: '2024-01-15',
-      time: '10:30 AM',
-      condition: 'Common Cold',
-      symptoms: ['Cough', 'Sore throat', 'Fever'],
-      status: 'completed',
-      confidence: 85,
-      actions: 3,
-      completedActions: 2
-    },
-    {
-      id: 2,
-      date: '2024-01-12',
-      time: '2:15 PM',
-      condition: 'Tension Headache',
-      symptoms: ['Headache', 'Neck tension', 'Fatigue'],
-      status: 'follow-up',
-      confidence: 78,
-      actions: 4,
-      completedActions: 4
-    },
-    {
-      id: 3,
-      date: '2024-01-08',
-      time: '9:45 AM',
-      condition: 'Lower Back Pain',
-      symptoms: ['Back pain', 'Stiffness', 'Muscle spasm'],
-      status: 'completed',
-      confidence: 92,
-      actions: 5,
-      completedActions: 5
-    },
-    {
-      id: 4,
-      date: '2024-01-03',
-      time: '11:20 AM',
-      condition: 'Seasonal Allergies',
-      symptoms: ['Sneezing', 'Runny nose', 'Itchy eyes'],
-      status: 'completed',
-      confidence: 89,
-      actions: 3,
-      completedActions: 3
-    },
-  ];
+  useEffect(() => {
+    fetchConsultations();
+  }, []);
+
+  const fetchConsultations = async () => {
+    try {
+      setLoading(true);
+      const userId = localStorage.getItem('userId') || 'user123';
+      const data = await ApiService.getConsultationHistory(userId);
+
+      const formattedConsultations = data.map(consultation => ({
+        id: consultation._id,
+        date: new Date(consultation.createdAt).toLocaleDateString(),
+        time: new Date(consultation.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        condition: consultation.advice?.illness || 'Unknown condition',
+        symptoms: consultation.symptoms ? consultation.symptoms.split(',').map(s => s.trim()) : [],
+        status: 'completed',
+        confidence: consultation.advice?.confidence || 0,
+        actions: (consultation.advice?.homeRemedies?.length || 0) + (consultation.advice?.otcMedicines?.length || 0),
+        completedActions: (consultation.advice?.homeRemedies?.length || 0) + (consultation.advice?.otcMedicines?.length || 0),
+        rawData: consultation
+      }));
+
+      setConsultations(formattedConsultations);
+    } catch (error) {
+      console.error('Error fetching consultations:', error);
+      setConsultations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredConsultations = consultations.filter((consultation) => {
     const matchesSearch = consultation.condition.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,11 +64,35 @@ const HistoryView = ({ onBack }) => {
     return 'text-red-600';
   };
 
+  const viewConsultationDetails = (consultation) => {
+    setSelectedConsultation(consultation.rawData);
+  };
+
+  if (selectedConsultation) {
+    return <ConsultationDetail consultation={selectedConsultation} onBack={() => setSelectedConsultation(null)} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6">
+          <button onClick={() => navigate('/dashboard')} className="text-blue-600 hover:text-blue-700 font-medium mb-2">
+            ← Back to Dashboard
+          </button>
+          <h2 className="text-2xl font-bold text-gray-900">Consultation History</h2>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-8 text-center">
+          <div className="animate-pulse">Loading consultations...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-6">
         <button
-          onClick={onBack}
+          onClick={() => navigate('/dashboard')}
           className="text-blue-600 hover:text-blue-700 font-medium mb-2"
         >
           ← Back to Dashboard
@@ -210,7 +225,10 @@ const HistoryView = ({ onBack }) => {
                         </span>
                       </span>
                     </div>
-                    <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                    <button
+                      onClick={() => viewConsultationDetails(consultation)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
                       View Details →
                     </button>
                   </div>
@@ -230,6 +248,210 @@ const HistoryView = ({ onBack }) => {
           <p className="text-gray-600">Try adjusting your search or filter criteria.</p>
         </div>
       )}
+    </div>
+  );
+};
+
+const ConsultationDetail = ({ consultation, onBack }) => {
+  const navigate = useNavigate();
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const getConfidenceColor = (confidence) => {
+    if (confidence >= 85) return 'text-green-600 bg-green-100';
+    if (confidence >= 70) return 'text-yellow-600 bg-yellow-100';
+    return 'text-red-600 bg-red-100';
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-6">
+        <button
+          onClick={onBack}
+          className="text-blue-600 hover:text-blue-700 font-medium mb-2 flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to History
+        </button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {consultation.advice?.illness || 'Consultation Details'}
+            </h2>
+            <p className="text-gray-600">{formatDate(consultation.createdAt)}</p>
+          </div>
+          {consultation.advice?.confidence && (
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${getConfidenceColor(consultation.advice.confidence)}`}>
+              {consultation.advice.confidence}% Confidence
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* Symptoms */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            Reported Symptoms
+          </h3>
+          <p className="text-gray-700">{consultation.symptoms}</p>
+        </div>
+
+        {/* SOAP Notes */}
+        {consultation.soap && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">SOAP Notes</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {consultation.soap.S && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Subjective</h4>
+                  <p className="text-gray-700 text-sm">{consultation.soap.S}</p>
+                </div>
+              )}
+              {consultation.soap.O && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Objective</h4>
+                  <p className="text-gray-700 text-sm">{consultation.soap.O}</p>
+                </div>
+              )}
+              {consultation.soap.A && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Assessment</h4>
+                  <p className="text-gray-700 text-sm">{consultation.soap.A}</p>
+                </div>
+              )}
+              {consultation.soap.P && (
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Plan</h4>
+                  <p className="text-gray-700 text-sm">{consultation.soap.P}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Medical Advice */}
+        {consultation.advice && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Home Remedies */}
+            {consultation.advice.homeRemedies && consultation.advice.homeRemedies.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Home className="h-5 w-5 text-green-600" />
+                  Home Remedies
+                </h3>
+                <ul className="space-y-2">
+                  {consultation.advice.homeRemedies.map((remedy, index) => (
+                    <li key={index} className="text-gray-700 text-sm flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
+                      {remedy}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* OTC Medicines */}
+            {consultation.advice.otcMedicines && consultation.advice.otcMedicines.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Pill className="h-5 w-5 text-blue-600" />
+                  OTC Medications
+                </h3>
+                <ul className="space-y-2">
+                  {consultation.advice.otcMedicines.map((medicine, index) => (
+                    <li key={index} className="text-gray-700 text-sm flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                      {medicine}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Red Flags */}
+        {consultation.advice?.redFlags && consultation.advice.redFlags.length > 0 && (
+          <div className="bg-red-50 rounded-lg border border-red-200 p-6">
+            <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Warning Signs - Seek Medical Attention If:
+            </h3>
+            <ul className="space-y-2">
+              {consultation.advice.redFlags.map((flag, index) => (
+                <li key={index} className="text-red-800 text-sm flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                  {flag}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Video */}
+        {consultation.advice?.videoUrl && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Video className="h-5 w-5 text-purple-600" />
+              Educational Video
+            </h3>
+            <a
+              href={consultation.advice.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Video className="h-4 w-4" />
+              Watch Video
+            </a>
+          </div>
+        )}
+
+        {/* Nearby Facilities */}
+        {consultation.nearby && consultation.nearby.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-red-600" />
+              Nearby Healthcare Facilities
+            </h3>
+            <div className="space-y-3">
+              {consultation.nearby.map((facility, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-900">{facility.name}</h4>
+                      <p className="text-gray-600 text-sm">{facility.address}</p>
+                      <span className="text-xs text-gray-500 capitalize">{facility.type}</span>
+                    </div>
+                    {facility.mapsUrl && (
+                      <a
+                        href={facility.mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        View on Maps →
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Disclaimer */}
+        {consultation.advice?.disclaimer && (
+          <div className="bg-yellow-50 rounded-lg border border-yellow-200 p-4">
+            <p className="text-yellow-800 text-sm">
+              <strong>Disclaimer:</strong> {consultation.advice.disclaimer}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

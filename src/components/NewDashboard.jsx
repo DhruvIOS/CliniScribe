@@ -81,23 +81,19 @@ export default function NewDashboard() {
     }
   };
 
-  const handleGenerateAdvice = () => {
+  const handleGenerateAdvice = async () => {
     if (symptoms.trim() && userLocation) {
-      fetch('http://localhost:5000/api/symptom', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: localStorage.getItem('userId'),
-          inputType: 'text',
+      try {
+        const data = await ApiService.analyzeSymptoms(
           symptoms,
-          location: userLocation,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          navigate('/consultation-results', { state: { consultation: data } });
-        })
-        .catch((err) => console.error(err));
+          localStorage.getItem('userId') || 'user123',
+          userLocation
+        );
+        navigate('/consultation-results', { state: { consultation: data } });
+      } catch (err) {
+        console.error('Error analyzing symptoms:', err);
+        alert('Failed to analyze symptoms. Please try again.');
+      }
     } else if (!userLocation) {
       alert('Please allow location access to get nearby pharmacies.');
     }
@@ -192,57 +188,158 @@ export default function NewDashboard() {
           <div className="space-y-6">
             {/* Health Dashboard Stats */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Health Dashboard</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Health Dashboard</h3>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <TrendingUp className="w-5 h-5 text-teal-600" />
-                    <span className="text-gray-700">Consultations</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{dashboardStats.totalConsultations}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-teal-600" />
-                    <span className="text-gray-700">This Month</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{dashboardStats.thisMonthConsultations}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-5 h-5 bg-purple-100 rounded flex items-center justify-center">
-                      <div className="w-2 h-2 bg-purple-600 rounded"></div>
+              <div className="space-y-6">
+                {/* Total Consultations Card */}
+                <div className="bg-gradient-to-r from-teal-50 to-teal-100 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-teal-700 font-medium">Total Consultations</p>
+                        <p className="text-xs text-teal-600">All time</p>
+                      </div>
                     </div>
-                    <span className="text-gray-700">Health Score</span>
+                    <span className="text-2xl font-bold text-teal-800">{dashboardStats.totalConsultations}</span>
                   </div>
-                  <span className={`font-semibold ${dashboardStats.healthScore === 'Good' ? 'text-green-600' : 'text-red-600'}`}>
-                    {dashboardStats.healthScore}
-                  </span>
+                </div>
+
+                {/* This Month Card */}
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-700 font-medium">This Month</p>
+                        <p className="text-xs text-blue-600">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+                      </div>
+                    </div>
+                    <span className="text-2xl font-bold text-blue-800">{dashboardStats.thisMonthConsultations}</span>
+                  </div>
+                </div>
+
+                {/* Health Score Card */}
+                <div className={`rounded-xl p-4 ${
+                  dashboardStats.healthScore === 'Excellent'
+                    ? 'bg-gradient-to-r from-green-50 to-green-100'
+                    : dashboardStats.healthScore === 'Good'
+                    ? 'bg-gradient-to-r from-emerald-50 to-emerald-100'
+                    : dashboardStats.healthScore === 'Fair'
+                    ? 'bg-gradient-to-r from-yellow-50 to-yellow-100'
+                    : 'bg-gradient-to-r from-red-50 to-red-100'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        dashboardStats.healthScore === 'Excellent'
+                          ? 'bg-green-600'
+                          : dashboardStats.healthScore === 'Good'
+                          ? 'bg-emerald-600'
+                          : dashboardStats.healthScore === 'Fair'
+                          ? 'bg-yellow-600'
+                          : 'bg-red-600'
+                      }`}>
+                        <div className="w-3 h-3 bg-white rounded-full"></div>
+                      </div>
+                      <div>
+                        <p className={`text-sm font-medium ${
+                          dashboardStats.healthScore === 'Excellent'
+                            ? 'text-green-700'
+                            : dashboardStats.healthScore === 'Good'
+                            ? 'text-emerald-700'
+                            : dashboardStats.healthScore === 'Fair'
+                            ? 'text-yellow-700'
+                            : 'text-red-700'
+                        }`}>Health Score</p>
+                        <p className={`text-xs ${
+                          dashboardStats.healthScore === 'Excellent'
+                            ? 'text-green-600'
+                            : dashboardStats.healthScore === 'Good'
+                            ? 'text-emerald-600'
+                            : dashboardStats.healthScore === 'Fair'
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}>Based on recent activity</p>
+                      </div>
+                    </div>
+                    <span className={`text-xl font-bold ${
+                      dashboardStats.healthScore === 'Excellent'
+                        ? 'text-green-800'
+                        : dashboardStats.healthScore === 'Good'
+                        ? 'text-emerald-800'
+                        : dashboardStats.healthScore === 'Fair'
+                        ? 'text-yellow-800'
+                        : 'text-red-800'
+                    }`}>
+                      {dashboardStats.healthScore}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Recent Consultations */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Consultations</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Consultations</h3>
+                {recentConsultations.length > 0 && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    {recentConsultations.length} recent
+                  </span>
+                )}
+              </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {recentConsultations.length === 0 ? (
-                  <p className="text-sm text-gray-500">No recent consultations</p>
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <MessageSquare className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm text-gray-500 mb-2">No consultations yet</p>
+                    <p className="text-xs text-gray-400">Start by describing your symptoms above</p>
+                  </div>
                 ) : (
-                  recentConsultations.map((consultation) => (
-                    <div key={consultation.id} className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
-                      <p className="text-sm text-gray-900 font-medium line-clamp-2 mb-1">
-                        {consultation.title}
-                      </p>
-                      <p className="text-xs text-gray-500">{new Date(consultation.date).toLocaleDateString()}</p>
+                  recentConsultations.map((consultation, index) => (
+                    <div key={consultation.id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors cursor-pointer">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 font-medium line-clamp-2 mb-1">
+                            {consultation.title}
+                          </p>
+                          <div className="flex items-center text-xs text-gray-500">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {new Date(consultation.date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                        <div className={`w-2 h-2 rounded-full ml-2 mt-1 ${
+                          index === 0 ? 'bg-teal-500' : 'bg-gray-300'
+                        }`}></div>
+                      </div>
                     </div>
                   ))
                 )}
               </div>
+
+              {recentConsultations.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => navigate('/history')}
+                    className="w-full text-sm text-teal-600 hover:text-teal-700 font-medium"
+                  >
+                    View all consultations
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
