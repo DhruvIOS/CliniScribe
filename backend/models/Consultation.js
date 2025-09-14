@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const ConsultationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: String, required: true },
   inputType: String,
   symptoms: String,
   transcript: String,

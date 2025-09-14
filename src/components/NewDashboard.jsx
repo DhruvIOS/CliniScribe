@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MessageSquare, Sparkles, Calendar, TrendingUp, Mic } from 'lucide-react';
 import ApiService from '../services/api.js';
 import FirebaseService from '../services/firebase.js';
@@ -11,12 +11,38 @@ export default function NewDashboard() {
   const [characterCount, setCharacterCount] = useState(0);
   const navigate = useNavigate();
 
+  const { state } = useLocation();
+  const consultation = state?.consultation;
+
+
+
   useEffect(() => {
     // Get user info from localStorage (set during login)
     const storedUserName = localStorage.getItem('userName') || 'User';
     const storedUserPhoto = localStorage.getItem('userPhoto') || '';
     setUserName(storedUserName);
     setUserPhoto(storedUserPhoto);
+  }, []);
+
+  const [userLocation, setUserLocation] = useState(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (err) => {
+          console.error('Error getting location:', err);
+          alert('Please allow location access for better results.');
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by your browser.');
+    }
   }, []);
 
   const handleSymptomsChange = (e) => {
@@ -27,27 +53,25 @@ export default function NewDashboard() {
     }
   };
 
-  const handleGenerateAdvice = async () => {
-    if (symptoms.trim()) {
-      try {
-        // Get user ID from localStorage
-        const userId = localStorage.getItem('userId') || '68c60dbbbb0c2ad2c3bb804a';
-
-        // Call the backend API to analyze symptoms
-        const analysis = await ApiService.analyzeSymptoms(symptoms, userId);
-
-        // Navigate to consultation results with the symptoms and analysis
-        navigate('/consultation-results', {
-          state: {
-            symptoms,
-            analysis
-          }
-        });
-      } catch (error) {
-        console.error('Error analyzing symptoms:', error);
-        // Still navigate with just symptoms if API fails
-        navigate('/consultation-results', { state: { symptoms } });
-      }
+  const handleGenerateAdvice = () => {
+    if (symptoms.trim() && userLocation) {
+      fetch('http://localhost:5000/api/symptom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: localStorage.getItem('userId'),
+          inputType: 'text',
+          symptoms,
+          location: userLocation
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          navigate('/consultation-results', { state: { consultation: data } });
+        })
+        .catch(err => console.error(err));
+    } else if (!userLocation) {
+      alert('Please allow location access to get nearby pharmacies.');
     }
   };
 
