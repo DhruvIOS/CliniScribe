@@ -1,14 +1,29 @@
-const express = require('express');
+// routes/auth.js
+const express = require("express");
 const router = express.Router();
-const User = require('../models/User');
+const User = require("../models/User"); // your Mongoose model
 
-// Accept: {user: {googleId, name, email, photo}}
-router.post('/google', async (req, res) => {
-  const { user } = req.body;
-  if (!user || !user.googleId) return res.status(400).json({ error: 'Missing user info' });
-  let dbUser = await User.findOne({ googleId: user.googleId });
-  if (!dbUser) dbUser = await User.create(user);
-  res.json({ user: dbUser });
+// Google login sync
+router.post("/google", async (req, res) => {
+  try {
+    const { googleId, name, email, photo } = req.body;
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        googleId,
+        name,
+        email,
+        photo,
+      });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error("Google auth error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 module.exports = router;

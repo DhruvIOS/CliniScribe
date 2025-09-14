@@ -1,10 +1,11 @@
+// firebase.js
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 
-// Firebase configuration using environment variables
+// Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,58 +13,33 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
-let app = null;
-let auth = null;
-let db = null;
-let storage = null;
+// Check config before init
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+  console.error("❌ Firebase config is missing required fields. Check your .env file!");
+}
+
+const app = initializeApp(firebaseConfig);
+
+// Services
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// Analytics (optional, may fail in dev)
 let analytics = null;
-
 try {
-  // Check if all required config values are present
-  const requiredFields = ['apiKey', 'authDomain', 'projectId'];
-  const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
-
-  if (missingFields.length > 0) {
-    console.warn('Firebase config missing fields:', missingFields, '- Firebase will not be initialized');
-  } else {
-    app = initializeApp(firebaseConfig);
-
-    // Initialize Firebase services
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-
-    // Initialize Analytics (optional)
-    if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
-      try {
-        analytics = getAnalytics(app);
-      } catch (error) {
-        console.warn('Analytics initialization failed:', error);
-      }
-    }
-
-    console.log('Firebase initialized successfully');
+  if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
+    analytics = getAnalytics(app);
   }
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  console.warn('Firebase will not be available - app will use fallback authentication');
+} catch (err) {
+  console.warn("Analytics disabled:", err);
 }
 
-export { app, auth, db, storage, analytics };
+// Google Provider
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-// Configure Google Auth Provider
-let googleProvider = null;
-if (auth) {
-  googleProvider = new GoogleAuthProvider();
-  googleProvider.setCustomParameters({
-    prompt: 'select_account'
-  });
-}
-
-export { googleProvider };
-
-export default app;
+export { app, auth, db, storage, analytics, googleProvider };
