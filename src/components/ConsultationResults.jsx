@@ -172,7 +172,11 @@ export default function ConsultationResults() {
 
               <div className="bg-teal-50 dark:bg-teal-900/20 rounded-2xl p-4 mb-6">
                 <p className="text-teal-800 dark:text-teal-300 text-sm">
-                  <strong>Your symptoms:</strong> {consultation.symptoms}
+                  <strong>Your symptoms:</strong> {consultation.symptoms} <br>
+                   </br>
+                   <br></br>
+
+                   <p style={{ color: 'red' }}> <strong >Cliniscribe is not a proper substitute for professional medicial advice</strong></p>
                 </p>
               </div>
             </div>
