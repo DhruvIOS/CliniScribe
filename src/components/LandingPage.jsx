@@ -150,6 +150,13 @@ export default function LandingPage() {
               >
                 Features
               </motion.a>
+              <motion.a
+                whileHover={{ scale: 1.05 }}
+                href="#team"
+                className="text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
+              >
+                Team
+              </motion.a>
             </nav>
 
             {/* Login Button */}
@@ -226,7 +233,7 @@ export default function LandingPage() {
                 className="flex items-center justify-center space-x-2 px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-teal-500 dark:hover:border-teal-400 transition-all font-semibold"
               >
                 <Play className="w-5 h-5" />
-                <span ><a  href="https://youtu.be/ZW3_PzuE-M4" target="_blank" > Watch Demo </a></span>
+                <span ><a href="https://youtu.be/ZW3_PzuE-M4" target="_blank" > Watch Demo </a></span>
               </motion.button>
             </motion.div>
 
@@ -270,8 +277,8 @@ export default function LandingPage() {
                 <div className="ml-auto">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
-                    <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                    <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
                   </div>
                 </div>
               </div>
@@ -302,7 +309,7 @@ export default function LandingPage() {
                     <h4 className="font-bold text-gray-900 dark:text-white">Viral Upper Respiratory Infection</h4>
                     <div className="flex items-center space-x-2 mt-2">
                       <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{width: '85%'}}></div>
+                        <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }}></div>
                       </div>
                       <span className="text-sm text-green-700 dark:text-green-400 font-medium">85% confidence</span>
                     </div>
@@ -411,6 +418,70 @@ export default function LandingPage() {
           </div>
         </motion.section>
 
+        {/* Team Section */}
+        {/* Team Section */}
+        <motion.section
+
+          initial={{ opacity: 0, y: 50 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="mt-32"
+        >
+          <div className="text-center mb-16" id="team">
+            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Meet Our Team
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              The passionate minds behind Cliniscribe, blending technology and healthcare innovation.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto" >
+            {[
+              {
+                name: "Dhruv Shah",
+                role: "Backend Developer",
+                desc: "Implemented backend services, integrated Gemini & Google Maps APIs, and engineered the custom Gemini prompt and MongoDB models."
+              },
+              {
+                name: "Arya Bhatt",
+                role: "Frontend Developer",
+                desc: "Built the frontend UI/UX, responsive layouts, interactive charts and implemented Google authentication."
+              },
+              {
+                name: "Jagrat Patel",
+                role: "Product & QA",
+                desc: "Led product vision and design improvements, supported QA testing, debugging, and helped iterate on UX across team devices."
+              }
+            ].map((member, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.05, y: -10 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                viewport={{ once: true }}
+
+                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all text-center"
+              >
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center text-white text-xl font-bold">
+                  {member.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  {member.name}
+                </h3>
+                <p className="text-sm text-teal-600 dark:text-teal-400 font-medium mb-2">
+                  {member.role}
+                </p>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">{member.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+
+
+
         {/* Testimonials */}
         <motion.section
           initial={{ opacity: 0, y: 50 }}
@@ -460,11 +531,10 @@ export default function LandingPage() {
                 <button
                   key={index}
                   onClick={() => setCurrentTestimonial(index)}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    index === currentTestimonial
+                  className={`w-3 h-3 rounded-full transition-all ${index === currentTestimonial
                       ? 'bg-teal-500'
                       : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
+                    }`}
                 />
               ))}
             </div>
