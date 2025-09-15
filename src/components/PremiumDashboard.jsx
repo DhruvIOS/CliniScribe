@@ -13,6 +13,8 @@ import FirebaseService from '../services/firebase.js';
 import HealthAnalytics from './HealthAnalytics';
 import VoiceInput from './VoiceInput';
 import RecoveryTracker from './RecoveryTracker';
+import { assessRisk, computeFollowUpDate } from '../utils/risk';
+import { computeConfidence as computeConfidenceFrontend } from '../utils/confidence';
 
 export default function PremiumDashboard() {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -43,6 +45,8 @@ export default function PremiumDashboard() {
     healthScore: 'Good',
   });
   const [recentConsultations, setRecentConsultations] = useState([]);
+  const [risk, setRisk] = useState(null);
+  const [metrics, setMetrics] = useState({ healthScore: 80, recoveryRate: 60 });
 
   const consultation = state?.consultation;
 
@@ -60,6 +64,54 @@ export default function PremiumDashboard() {
       bloodType: localStorage.getItem('userBloodType') || 'O+',
       allergies: localStorage.getItem('userAllergies') || 'None'
     }));
+  }, []);
+
+  // Load risk/metrics and listen for updates (YES/NO follow-up click)
+  useEffect(() => {
+    try {
+      const m = JSON.parse(localStorage.getItem('userMetrics') || '{}');
+      if (m && (m.healthScore || m.recoveryRate)) {
+        setMetrics({
+          healthScore: m.healthScore ?? 80,
+          recoveryRate: m.recoveryRate ?? 60,
+        });
+      }
+      const r = JSON.parse(localStorage.getItem('currentRisk') || 'null');
+      if (r) setRisk(r);
+    } catch {}
+    const onStorage = () => {
+      try {
+        const m = JSON.parse(localStorage.getItem('userMetrics') || '{}');
+        if (m) setMetrics({
+          healthScore: m.healthScore ?? 80,
+          recoveryRate: m.recoveryRate ?? 60,
+        });
+        const r = JSON.parse(localStorage.getItem('currentRisk') || 'null');
+        if (r) setRisk(r);
+      } catch {}
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Catch-up: if follow-up email was scheduled but not sent and due time passed
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const sched = JSON.parse(localStorage.getItem('followUpSchedule') || 'null');
+        if (!sched || sched.sent) return;
+        if (Date.now() >= (sched.dueAt || 0)) {
+          await ApiService.sendFollowUpEmail({
+            to: sched.to, name: sched.name, yesUrl: sched.yesUrl, noUrl: sched.noUrl,
+            followUpDate: new Date(sched.dueAt).toISOString()
+          });
+          localStorage.setItem('followUpSchedule', JSON.stringify({ ...sched, sent: true, sentAt: Date.now() }));
+        }
+      } catch (e) {
+        console.warn('Follow-up catch-up failed:', e);
+      }
+    };
+    run();
   }, []);
 
   // Get user geolocation
@@ -112,6 +164,21 @@ export default function PremiumDashboard() {
           setSelectedConsultation(needsRecoveryCheck);
           setShowRecoveryTracker(true);
         }
+
+        // Initialize metrics if not present using history
+        const metricsRaw = localStorage.getItem('userMetrics');
+        if (!metricsRaw) {
+          // Health score baseline using existing helper
+          const histHealth = calculateHealthScore(fullConsultations);
+          const baseHealth = Number(histHealth.score || 80);
+          // Recovery rate baseline: percentage of resolved recoveries
+          const total = fullConsultations.length;
+          const resolved = fullConsultations.filter(c => c?.recovery?.isResolved === true).length;
+          const baseRecovery = total > 0 ? Math.round((resolved / total) * 100) : 100;
+          const init = { healthScore: baseHealth, recoveryRate: baseRecovery };
+          localStorage.setItem('userMetrics', JSON.stringify(init));
+          setMetrics(init);
+        }
       } catch (err) {
         console.error('Error fetching recent consultations:', err);
       }
@@ -146,25 +213,77 @@ export default function PremiumDashboard() {
   };
 
   const handleGenerateAdvice = async () => {
-    if (!symptoms.trim()) return;
+    console.log('[PremiumDashboard] Get Instant Health Guidance clicked');
+
+    // 1) Validate input
+    if (!symptoms || !symptoms.trim()) {
+      console.warn('[PremiumDashboard] No symptoms provided');
+      return;
+    }
 
     setIsGenerating(true);
     try {
-      const response = await fetch('https://cliniscribe.onrender.com/api/symptom', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: localStorage.getItem('userId'),
-          inputType: 'text',
-          symptoms,
-          location: userLocation,
-        }),
+      const userId = localStorage.getItem('userId') || 'user123';
+      console.log('[PremiumDashboard] Calling ApiService.analyzeSymptoms', {
+        userId,
+        length: symptoms.length,
+        hasLocation: Boolean(userLocation),
       });
 
-      const data = await response.json();
-      navigate('/consultation-results', { state: { consultation: data } });
+      // 2) Await AI analysis via centralized API service
+      const data = await ApiService.analyzeSymptoms(symptoms, userId, userLocation);
+      console.log('[PremiumDashboard] Analysis success');
+
+      // 3) Compute risk and schedule follow-up email
+      const likely = data?.advice?.illness || data?.advice?.likelyCondition || '';
+      const rEval = assessRisk(likely, symptoms, data?.advice);
+      const riskId = `${Date.now()}`;
+      const followUpDate = computeFollowUpDate(rEval.followUpHours);
+      const riskRecord = {
+        id: riskId,
+        severity: rEval.severity,
+        urgency: rEval.urgency,
+        followUpHours: rEval.followUpHours,
+        followUpDate,
+        followUpNeeded: rEval.followUpNeeded,
+        responded: false,
+        outcome: null,
+        needsReassessment: false,
+        confidence: (() => { const v = Number(data?.advice?.confidence || 0); return v>0? v : computeConfidenceFrontend(symptoms || '', likely || ''); })(),
+      createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem('currentRisk', JSON.stringify(riskRecord));
+      localStorage.setItem('lastConfidence', String(riskRecord.confidence));
+      setRisk(riskRecord);
+
+      if (rEval.followUpNeeded) {
+        const name = localStorage.getItem('userName') || 'User';
+        const to = localStorage.getItem('userEmail') || '';
+        if (to) {
+          const base = window.location.origin;
+          const yesUrl = `${base}/follow-up?decision=yes&rid=${encodeURIComponent(riskId)}`;
+          const noUrl = `${base}/follow-up?decision=no&rid=${encodeURIComponent(riskId)}`;
+          const dueAt = followUpDate ? new Date(followUpDate).getTime() : Date.now();
+          localStorage.setItem('followUpSchedule', JSON.stringify({ id: riskId, to, name, yesUrl, noUrl, dueAt, sent: false }));
+
+          const ms = Math.max(0, dueAt - Date.now());
+          setTimeout(async () => {
+            try {
+              const sched = JSON.parse(localStorage.getItem('followUpSchedule') || '{}');
+              if (sched?.sent || sched?.id !== riskId) return;
+              await ApiService.sendFollowUpEmail({ to, name, yesUrl, noUrl, followUpDate });
+              localStorage.setItem('followUpSchedule', JSON.stringify({ ...sched, sent: true, sentAt: Date.now() }));
+            } catch (e) {
+              console.warn('Follow-up email send attempt failed:', e);
+            }
+          }, ms);
+        }
+      }
+
+      // 4) Navigate to results with state
+      navigate('/consultation-results', { state: { consultation: { ...data, risk: riskRecord } } });
     } catch (err) {
-      console.error(err);
+      console.error('[PremiumDashboard] Analysis failed:', err);
     } finally {
       setIsGenerating(false);
     }
@@ -220,8 +339,8 @@ export default function PremiumDashboard() {
   const statsCards = [
     {
       title: 'Health Score',
-      value: healthScoreData.score.toString(),
-      subtitle: healthScoreData.status,
+      value: (metrics.healthScore ?? 80).toString(),
+      subtitle: 'Live',
       icon: Heart,
       color: 'green',
       trend: recentConsultations.length === 0 ? 'Perfect!' : `${recentConsultations.length} recent`,
@@ -238,8 +357,8 @@ export default function PremiumDashboard() {
     },
     {
       title: 'Recovery Rate',
-      value: recentConsultations.length > 0 ? '85%' : '100%',
-      subtitle: 'Success Rate',
+      value: `${metrics.recoveryRate ?? 60}%`,
+      subtitle: 'Live',
       icon: Target,
       color: 'purple',
       trend: 'Improving',
@@ -385,6 +504,8 @@ export default function PremiumDashboard() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Risk Assessment UI removed on dashboard as requested */}
 
         {/* Stats Cards */}
         <motion.div

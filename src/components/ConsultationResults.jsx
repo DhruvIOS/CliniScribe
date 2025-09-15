@@ -9,6 +9,8 @@ import {
   Stethoscope, Phone, Navigation, BarChart3
 } from 'lucide-react';
 import HealthAnalytics from './HealthAnalytics';
+import { computeConfidence as computeConfidenceFrontend } from '../utils/confidence';
+import { assessRisk, computeFollowUpDate } from '../utils/risk';
 
 export default function ConsultationResults() {
   const location = useLocation();
@@ -33,6 +35,71 @@ export default function ConsultationResults() {
       </div>
     );
   }
+
+  // Risk evaluation for this consultation
+  const riskEval = React.useMemo(() => {
+    const ill = consultation.advice?.illness || consultation.advice?.likelyCondition || '';
+    return assessRisk(ill, consultation.symptoms || '', consultation.advice || {});
+  }, [consultation]);
+  const followUpIso = React.useMemo(() => computeFollowUpDate(riskEval.followUpHours), [riskEval]);
+
+  // One source of truth for confidence across the page
+  const computedConfidence = React.useMemo(() => {
+    const base = Number(consultation.advice?.confidence || 0);
+    if (base > 0) return Math.max(0, Math.min(100, base));
+    const ill = consultation.advice?.illness || consultation.advice?.likelyCondition || '';
+    return computeConfidenceFrontend(consultation.symptoms || '', ill || '');
+  }, [consultation]);
+
+  // Auto-generate SOAP content based on symptoms, advice, confidence, and risk
+  const soapAuto = React.useMemo(() => {
+    const symptomsText = (consultation.symptoms || '').trim();
+    const illness = consultation.advice?.illness || consultation.advice?.likelyCondition || 'General consultation';
+    const redFlags = Array.isArray(consultation.advice?.redFlags) ? consultation.advice.redFlags.filter(Boolean) : [];
+    const remedies = Array.isArray(consultation.advice?.homeRemedies) ? consultation.advice.homeRemedies : [];
+    const otcs = Array.isArray(consultation.advice?.otcMedicines) ? consultation.advice.otcMedicines : [];
+
+    const durationMatch = symptomsText.match(/for\s+(\d+)\s*(day|days|hour|hours|week|weeks)/i) || symptomsText.match(/since\s+(yesterday|today|last night|last week)/i);
+    const duration = durationMatch ? durationMatch[0] : null;
+    const hasRed = redFlags.length > 0 || riskEval.severity === 'High';
+
+    const S = [
+      symptomsText ? `Patient reports: ${symptomsText}.` : 'Patient describes symptoms consistent with the assessment.',
+      duration ? `Duration/context: ${duration}.` : null,
+      hasRed ? `Red flags reported/identified: ${redFlags.join(', ') || 'clinically significant symptoms present'}.` : 'No critical red flags reported. '
+    ].filter(Boolean).join(' ');
+
+    const O = [
+      'No objective vitals available in this session.',
+      `AI pattern match suggests ${illness} with ${Math.round(computedConfidence)}% confidence.`,
+      hasRed ? 'Caution: Concerning features detected; prioritize safety measures.' : 'Objective concerns limited based on provided information.'
+    ].join(' ');
+
+    const differentials = (() => {
+      const l = illness.toLowerCase();
+      if (l.includes('common cold')) return 'Influenza, allergic rhinitis, COVID-19.';
+      if (l.includes('gastro')) return 'Foodborne illness, IBS flare, gastritis.';
+      if (l.includes('migraine')) return 'Tension headache, cluster headache, sinusitis.';
+      if (l.includes('pneumonia')) return 'Acute bronchitis, COVID-19, heart failure.';
+      if (l.includes('gerd') || l.includes('acid reflux')) return 'Peptic ulcer disease, esophagitis, cardiac etiologies if chest pain.';
+      return 'Other etiologies as clinically indicated.';
+    })();
+
+    const A = [
+      `Most likely: ${illness}. Severity: ${riskEval.severity}.`,
+      `Urgency: ${riskEval.urgency}`,
+      `Differentials: ${differentials}`
+    ].join(' ');
+
+    const planParts = [];
+    if (remedies.length) planParts.push(`Home care: ${remedies.slice(0, 3).join('; ')}.`);
+    if (otcs.length) planParts.push(`OTC options: ${otcs.slice(0, 3).join('; ')}.`);
+    if (riskEval.followUpHours && riskEval.followUpHours.length) planParts.push(`Follow-up: ${riskEval.followUpHours[0]}–${riskEval.followUpHours[1]} hours${followUpIso ? ` (around ${new Date(followUpIso).toLocaleString()})` : ''}.`);
+    if (hasRed) planParts.push('Seek urgent in-person evaluation if symptoms worsen or new red flags develop.');
+    const P = planParts.join(' ');
+
+    return { S, O, A, P };
+  }, [consultation, riskEval, computedConfidence, followUpIso]);
 
   const tabs = [
     { id: 'analysis', label: 'Analysis', icon: Brain },
@@ -183,33 +250,53 @@ export default function ConsultationResults() {
 
             {/* Confidence Score */}
             <div className="flex flex-col items-center justify-center">
-              <div className="relative w-32 h-32 mb-4">
-                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="stroke-gray-200 dark:stroke-gray-700"
-                    strokeDasharray="100, 100"
-                    strokeWidth="3"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="stroke-teal-500"
-                    strokeDasharray={`${consultation.advice?.confidence || 75}, 100`}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
+              <div className="relative w-32 h-32 mb-3">
+                {(() => {
+                  const conf = computedConfidence;
+                  const color = conf >= 80 ? 'stroke-green-500' : conf >= 50 ? 'stroke-yellow-500' : 'stroke-red-500';
+                  return (
+                    <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="stroke-gray-200 dark:stroke-gray-700"
+                        strokeDasharray="100, 100"
+                        strokeWidth="3"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className={color}
+                        strokeDasharray={`${conf}, 100`}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <foreignObject x="8" y="8" width="20" height="20" style={{ transform: 'rotate(90deg)' }}>
+                        <div className="w-full h-full flex items-center justify-center rotate-90"></div>
+                      </foreignObject>
+                    </svg>
+                  );
+                })()}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {consultation.advice?.confidence || 75}%
+                    {Math.round(computedConfidence)}%
                   </span>
                 </div>
               </div>
-              <div className="px-4 py-2 rounded-full text-sm font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300">
-                Confidence Score
-              </div>
+              {(() => {
+                const conf = computedConfidence;
+                const level = conf >= 80 ? 'High' : conf >= 50 ? 'Medium' : 'Low';
+                const badge = conf >= 80
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                  : conf >= 50
+                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                  : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+                return (
+                  <div className={`px-4 py-2 rounded-full text-sm font-medium ${badge}`}>
+                    {level} Confidence
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -254,39 +341,82 @@ export default function ConsultationResults() {
                   </p>
                   <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/40 rounded-xl">
                     <p className="text-blue-800 dark:text-blue-300 text-sm">
-                      <strong>Confidence Level:</strong> {consultation.advice?.confidence || 75}% - This indicates the reliability of the analysis based on the symptoms provided.
+                      <strong>Confidence Level:</strong> {Math.round(computedConfidence)}% ({computedConfidence >= 80 ? 'High' : computedConfidence >= 50 ? 'Medium' : 'Low'}) — based on number of symptoms, specificity, and match strength.
                     </p>
                   </div>
-                </div>
 
-                {/* Risk Assessment */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6">
-                    <h4 className="font-semibold text-green-900 dark:text-green-300 mb-4 flex items-center">
-                      <Shield className="w-5 h-5 mr-2" />
-                      Risk Assessment
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-green-800 dark:text-green-400 text-sm">Severity Level:</span>
-                        <span className="px-3 py-1 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 rounded-full text-xs font-semibold">
-                          {consultation.advice?.redFlags?.length > 0 ? 'Moderate' : 'Low'}
-                        </span>
+                  {/* SOAP Notes (auto-generated) */}
+                  <div className="mt-4 mb-2 text-sm font-semibold text-blue-900 dark:text-blue-300">SOAP Notes</div>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-blue-100 dark:border-blue-800">
+                      <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">Subjective (S)</div>
+                      <div className="text-sm text-gray-800 dark:text-gray-200">
+                        {soapAuto.S}
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-green-800 dark:text-green-400 text-sm">Urgency:</span>
-                        <span className="text-green-900 dark:text-green-300 text-sm font-medium">
-                          {consultation.advice?.redFlags?.length > 0 ? 'Monitor closely' : 'Non-urgent'}
-                        </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-blue-100 dark:border-blue-800">
+                      <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">Objective (O)</div>
+                      <div className="text-sm text-gray-800 dark:text-gray-200">
+                        {soapAuto.O}
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-green-800 dark:text-green-400 text-sm">Follow-up:</span>
-                        <span className="text-green-900 dark:text-green-300 text-sm font-medium">
-                          {consultation.advice?.redFlags?.length > 0 ? 'In 24-48 hours' : 'If symptoms persist'}
-                        </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-blue-100 dark:border-blue-800">
+                      <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">Assessment (A)</div>
+                      <div className="text-sm text-gray-800 dark:text-gray-200">
+                        {soapAuto.A}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-gray-700 border border-blue-100 dark:border-blue-800">
+                      <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">Plan (P)</div>
+                      <div className="text-sm text-gray-800 dark:text-gray-200">
+                        {soapAuto.P}
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Risk Assessment (actual) + Recommendations */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`rounded-2xl p-6 text-white bg-gradient-to-r ${
+                      riskEval.severity === 'High'
+                        ? 'from-rose-600 to-red-700'
+                        : riskEval.severity === 'Moderate'
+                        ? 'from-amber-500 to-orange-600'
+                        : 'from-emerald-500 to-green-600'
+                    }`}
+                  >
+                    <h4 className="font-semibold text-white mb-4 flex items-center">
+                      <Shield className="w-5 h-5 mr-2" />
+                      Risk Assessment
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="opacity-90">Severity Level</span>
+                        <span className="px-3 py-1 bg-white/20 text-white rounded-full text-xs font-semibold">
+                          {riskEval.severity}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="opacity-90">Urgency</span>
+                        <span className="font-medium">{riskEval.urgency}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="opacity-90">Follow-up</span>
+                        <span className="font-medium">
+                          {riskEval.followUpHours ? `${riskEval.followUpHours[0]}–${riskEval.followUpHours[1]} hours` : 'As needed'}
+                        </span>
+                      </div>
+                      {followUpIso && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="opacity-90">Follow-up Date</span>
+                          <span className="font-medium">{new Date(followUpIso).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
 
                   <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-6">
                     <h4 className="font-semibold text-purple-900 dark:text-purple-300 mb-4 flex items-center">
@@ -340,38 +470,7 @@ export default function ConsultationResults() {
                   </div>
                 </div>
 
-                {/* SOAP Notes if available */}
-                {consultation.soap && (
-                  <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-gray-700 p-6 mt-6">
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">SOAP Notes</h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {consultation.soap.S && (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-                          <h5 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Subjective</h5>
-                          <p className="text-blue-800 dark:text-blue-400 text-sm">{consultation.soap.S}</p>
-                        </div>
-                      )}
-                      {consultation.soap.O && (
-                        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
-                          <h5 className="font-semibold text-green-900 dark:text-green-300 mb-2">Objective</h5>
-                          <p className="text-green-800 dark:text-green-400 text-sm">{consultation.soap.O}</p>
-                        </div>
-                      )}
-                      {consultation.soap.A && (
-                        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4">
-                          <h5 className="font-semibold text-purple-900 dark:text-purple-300 mb-2">Assessment</h5>
-                          <p className="text-purple-800 dark:text-purple-400 text-sm">{consultation.soap.A}</p>
-                        </div>
-                      )}
-                      {consultation.soap.P && (
-                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4">
-                          <h5 className="font-semibold text-orange-900 dark:text-orange-300 mb-2">Plan</h5>
-                          <p className="text-orange-800 dark:text-orange-400 text-sm">{consultation.soap.P}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* Removed lower SOAP Notes section as requested */}
               </div>
             </div>
           )}
@@ -529,7 +628,9 @@ export default function ConsultationResults() {
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">Nearby Healthcare Facilities</h3>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                    {consultation.nearby.map((facility, index) => (
+                    {[...consultation.nearby]
+                      .sort((a,b) => ((a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)))
+                      .map((facility, index) => (
                       <div key={index} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:shadow-lg transition-shadow">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -538,6 +639,11 @@ export default function ConsultationResults() {
                             <span className="inline-block mt-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 text-xs rounded-full capitalize">
                               {facility.type.replace('_', ' ')}
                             </span>
+                            {facility.distanceKm != null && (
+                              <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                {facility.distanceKm} km away
+                              </div>
+                            )}
                           </div>
                           {facility.mapsUrl && (
                             <a

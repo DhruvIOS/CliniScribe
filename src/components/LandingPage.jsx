@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import FlipCard from './FlipCard';
 import {
   Stethoscope, Play, CheckCircle, Eye, ArrowRight, Heart, Brain,
   Shield, Clock, Users, Star, Zap, Activity, TrendingUp,
@@ -362,20 +363,26 @@ export default function LandingPage() {
                 key={index}
                 initial={{ opacity: 0, y: 50 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: 1.05, y: -10 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all"
+                className="flex items-center justify-center"
               >
-                <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
-                  <feature.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  {feature.description}
-                </p>
+                <FlipCard
+                  className="border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80"
+                  frontContent={
+                    <div className="flex flex-col items-center justify-center text-center gap-3 px-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl flex items-center justify-center">
+                        <feature.icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="text-base font-semibold text-gray-900 dark:text-white">{feature.title}</div>
+                    </div>
+                  }
+                  backContent={
+                    <div className="px-4">
+                      <p className="text-sm text-center text-gray-700 dark:text-gray-300">{feature.description}</p>
+                    </div>
+                  }
+                />
               </motion.div>
             ))}
           </div>
