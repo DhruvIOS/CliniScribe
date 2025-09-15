@@ -150,7 +150,7 @@ export default function PremiumDashboard() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('http://localhost:5000/api/symptom', {
+      const response = await fetch('https://cliniscribe.onrender.com/api/symptom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
