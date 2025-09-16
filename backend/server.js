@@ -22,6 +22,8 @@ app.use('/api/symptom', require('./routes/symptom'));
 app.use('/api/history', require('./routes/history'));
 app.use('/api/maps', require('./routes/maps'));
 app.use('/api/video', require('./routes/video'));
+app.use('/api/email', require('./routes/email'));
+app.use('/api/stt', require('./routes/stt'));
 
 app.get('/', (req, res) => res.send('Cliniscribe 2.0 Backend API running...'));
 

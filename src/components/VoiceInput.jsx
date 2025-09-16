@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ApiService from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Volume2, Loader2, Zap } from 'lucide-react';
 
@@ -6,85 +7,182 @@ const VoiceInput = ({ onTranscript, isActive = false }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(false);
-  const [recognition, setRecognition] = useState(null);
+  const [isMobileFallback, setIsMobileFallback] = useState(false);
+  const [recognitionReady, setRecognitionReady] = useState(false);
+  const recognitionRef = useRef(null);
+  const manualStopRef = useRef(false);
+  const keepAliveRef = useRef(false);
+  const finalBufferRef = useRef('');
+  const isListeningRef = useRef(false);
+  const onTranscriptRef = useRef(onTranscript);
   const [confidence, setConfidence] = useState(0);
+
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+  }, [onTranscript]);
 
   useEffect(() => {
     // Check if browser supports Speech Recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
 
-    if (SpeechRecognition) {
+    const ua = navigator.userAgent || '';
+    const isiOS = /iPhone|iPad|iPod/i.test(ua);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+
+    if (SpeechRecognition && !(isiOS && isSafari)) {
       setIsSupported(true);
       const recognitionInstance = new SpeechRecognition();
 
       // Configuration
+      // Keep mic on until user stops manually
       recognitionInstance.continuous = true;
       recognitionInstance.interimResults = true;
       recognitionInstance.lang = 'en-US';
+      recognitionInstance.maxAlternatives = 3;
+
+      // Add lightweight symptom grammar to bias recognition
+      if (SpeechGrammarList) {
+        const grammarList = new SpeechGrammarList();
+        const terms = [
+          'fever','high fever','chills','cough','dry cough','sore throat','runny nose','congestion','sneezing',
+          'headache','throbbing headache','migraine','nausea','vomiting','diarrhea','abdominal pain','cramps',
+          'shortness of breath','wheezing','chest pain','fatigue','body ache','loss of smell','loss of taste',
+          'heartburn','regurgitation','dizziness','lightheaded','dehydration','urinary frequency','burning urination'
+        ];
+        const grammar = `#JSGF V1.0; grammar symptoms; public <symptom> = ${terms.join(' | ')} ;`;
+        grammarList.addFromString(grammar, 1);
+        if (recognitionInstance.grammar) {
+          recognitionInstance.grammar = grammarList;
+        } else if (recognitionInstance.grammars) {
+          recognitionInstance.grammars = grammarList;
+        }
+      }
 
       // Event handlers
       recognitionInstance.onresult = (event) => {
-        let finalTranscript = '';
+        if (!isListeningRef.current) return; // guard against updates after stop
         let interimTranscript = '';
-
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
+          const best = result[0];
           if (result.isFinal) {
-            finalTranscript += result[0].transcript;
-            setConfidence(result[0].confidence);
+            // append to persistent buffer
+            finalBufferRef.current = `${finalBufferRef.current}${finalBufferRef.current ? ' ' : ''}${best.transcript.trim()}`.trim();
+            setConfidence(best.confidence || 0);
           } else {
-            interimTranscript += result[0].transcript;
+            interimTranscript += best.transcript;
           }
         }
-
-        const fullTranscript = finalTranscript || interimTranscript;
-        setTranscript(fullTranscript);
-        onTranscript?.(fullTranscript);
+        const display = `${finalBufferRef.current}${interimTranscript ? ' ' + interimTranscript : ''}`.trim();
+        setTranscript(display);
+        // Send only the stable portion to parent to reduce noise
+        const payload = finalBufferRef.current || display;
+        try { onTranscriptRef.current && onTranscriptRef.current(payload); } catch {}
       };
 
       recognitionInstance.onstart = () => {
+        isListeningRef.current = true;
         setIsListening(true);
       };
 
       recognitionInstance.onend = () => {
+        isListeningRef.current = false;
         setIsListening(false);
+        // If user didn't manually stop and keep-alive is enabled, restart quickly
+        if (!manualStopRef.current && keepAliveRef.current) {
+          try { recognitionInstance.start(); }
+          catch {
+            // Some browsers need a short delay before restart
+            setTimeout(() => {
+              try { recognitionInstance.start(); } catch {}
+            }, 200);
+          }
+        }
       };
 
       recognitionInstance.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
+        isListeningRef.current = false;
         setIsListening(false);
       };
-
-      setRecognition(recognitionInstance);
+      recognitionRef.current = recognitionInstance;
+      setRecognitionReady(true);
+    } else {
+      // Mobile fallback (e.g., iOS Safari): use file capture for audio and server-side STT
+      setIsSupported(false);
+      setIsMobileFallback(true);
     }
-  }, [onTranscript]);
+    return () => {
+      try { recognitionRef.current && recognitionRef.current.abort(); } catch {}
+    };
+  }, [isActive]);
 
   const startListening = () => {
-    if (recognition && !isListening) {
-      recognition.start();
+    if (recognitionReady && !isListening) {
+      manualStopRef.current = false;
+      keepAliveRef.current = true;
+      finalBufferRef.current = '';
+      setTranscript('');
+      try { recognitionRef.current && recognitionRef.current.start(); } catch (e) { /* ignore */ }
     }
   };
 
-  const stopListening = () => {
-    if (recognition && isListening) {
-      recognition.stop();
+  const stopListening = (immediate = false) => {
+    manualStopRef.current = true;
+    keepAliveRef.current = false;
+    if (recognitionReady) {
+      try {
+        if (immediate) {
+          recognitionRef.current && recognitionRef.current.abort();
+        } else {
+          recognitionRef.current && recognitionRef.current.stop();
+        }
+      } catch {}
+      isListeningRef.current = false;
+      setIsListening(false);
     }
   };
 
   const toggleListening = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
+    if (isListening) stopListening(true);
+    else startListening();
   };
 
-  if (!isSupported) {
+  // Mobile/iOS fallback UI
+  if (isMobileFallback) {
     return (
-      <div className="text-center p-4">
-        <p className="text-gray-500 text-sm">
-          Voice input not supported in this browser
-        </p>
+      <div className="flex items-center space-x-2">
+        <label className="relative inline-flex items-center">
+          <input
+            type="file"
+            accept="audio/*"
+            capture="microphone"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                setIsListening(true);
+                const { text } = await ApiService.transcribeAudio(file);
+                setTranscript(text || '');
+                onTranscript?.(text || '');
+              } catch (err) {
+                console.error('Transcription failed', err);
+              } finally {
+                setIsListening(false);
+              }
+            }}
+          />
+          <button className={`px-4 py-2 rounded-full text-white ${isListening ? 'bg-red-500' : 'bg-blue-500 hover:bg-blue-600'}`}
+            onClick={(ev) => {
+              // trigger the hidden input
+              ev.currentTarget.previousSibling?.click();
+            }}
+          >
+            {isListening ? 'Processing…' : 'Record'}
+          </button>
+        </label>
       </div>
     );
   }
@@ -240,7 +338,7 @@ const VoiceInput = ({ onTranscript, isActive = false }) => {
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
-                  onClick={stopListening}
+                  onClick={() => stopListening(true)}
                   className="px-3 py-1 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
                 >
                   Stop

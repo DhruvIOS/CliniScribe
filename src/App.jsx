@@ -6,6 +6,7 @@ import LoginPage from './components/LoginPage';
 import PremiumDashboard from './components/PremiumDashboard';
 import ConsultationResults from './components/ConsultationResults';
 import HistoryView from './components/HistoryView';
+import FollowUp from './pages/FollowUp';
 
 // Protected Route component
 function ProtectedRoute({ children }) {
@@ -71,6 +72,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            <Route path="/follow-up" element={<FollowUp />} />
 
             {/* Redirect any unknown routes to home */}
             <Route path="*" element={<Navigate to="/" replace />} />

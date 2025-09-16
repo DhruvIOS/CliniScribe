@@ -1,64 +1,131 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadialBarChart, RadialBar
 } from 'recharts';
 import { TrendingUp, TrendingDown, Activity, Heart, Brain, Shield } from 'lucide-react';
+import ApiService from '../services/api';
 
 const HealthAnalytics = ({ consultations = [] }) => {
   const [selectedMetric, setSelectedMetric] = useState('consultations');
+  const [fullConsultations, setFullConsultations] = useState([]);
 
-  // Generate data from real consultations with fallback sample data
-  const generateHealthData = (consultations) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+  // Load full history if needed (to compute symptoms, recovery, etc.)
+  useEffect(() => {
+    const hasDetail = Array.isArray(consultations) && consultations.some(c => c && (c.symptoms || c.advice));
+    if (hasDetail) {
+      setFullConsultations(consultations);
+      return;
+    }
+    (async () => {
+      try {
+        const userId = localStorage.getItem('userId') || 'user123';
+        const history = await ApiService.getConsultationHistory(userId);
+        setFullConsultations(history || []);
+      } catch (e) {
+        setFullConsultations([]);
+      }
+    })();
+  }, [consultations]);
+
+  const monthLabels = useMemo(() => {
+    const arr = [];
     const now = new Date();
-
-    if (!consultations || consultations.length === 0) {
-      // Return sample data - always show data for better chart visualization
-      return months.map((month, index) => ({
-        month,
-        consultations: Math.floor(Math.random() * 3) + 1,
-        healthScore: 85 + Math.floor(Math.random() * 10),
-        symptoms: Math.floor(Math.random() * 4) + 1,
-        recovery: Math.floor(Math.random() * 2) + 4
-      }));
-    }
-
-    const realData = months.map(month => {
-      // Filter consultations by month
-      const monthConsultations = consultations.filter(c => {
-        const date = new Date(c.createdAt || c.date);
-        return date.getMonth() === months.indexOf(month) && date.getFullYear() === now.getFullYear();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      arr.push({
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: d.toLocaleString('en-US', { month: 'short' }),
+        year: d.getFullYear(),
+        monthIndex: d.getMonth(),
       });
-
-      return {
-        month,
-        consultations: monthConsultations.length,
-        healthScore: monthConsultations.length > 0 ? 100 - (monthConsultations.length * 10) : 100,
-        symptoms: monthConsultations.reduce((sum, c) => sum + (c.symptoms ? c.symptoms.split(',').length : 1), 0),
-        recovery: monthConsultations.length > 0 ? Math.max(1, 7 - monthConsultations.length) : 5
-      };
-    });
-
-    // Ensure we always show at least current month and some data
-    const hasAnyData = realData.some(data => data.consultations > 0);
-    if (!hasAnyData && realData[now.getMonth()]) {
-      realData[now.getMonth()].consultations = 1;
-      realData[now.getMonth()].healthScore = 90;
-      realData[now.getMonth()].symptoms = 2;
-      realData[now.getMonth()].recovery = 5;
     }
+    return arr;
+  }, []);
 
-    return realData;
+  const stopwords = new Set(['i','ive','i\'ve','im','i\'m','me','my','mine','we','our','you','your','yours','have','having','had','has','get','getting','got','for','and','with','the','a','an','of','to','in','on','at','it','its','is','am','are','was','were','been','very','really','kinda','sort','sorta','bit','little','since','today','yesterday','tonight','last','night','morning','evening','days','day','weeks','week','hours','hour','ago','now','then','also','but','so','like']);
+
+  const tokenizeSymptoms = (text = '') => {
+    const lowered = (text || '').toLowerCase();
+    return lowered
+      .split(/,|;|\.|\band\b|\bwith\b|\bn\b|\+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .flatMap(s => s.split(/\s+/))
+      .map(s => s.replace(/[^a-z\-]/g, ''))
+      .filter(s => s.length > 2 && !stopwords.has(s));
   };
 
-  const [healthData, setHealthData] = useState(() => generateHealthData(consultations));
+  // Symptom lexicon for phrase-first counting to avoid noise like "and, the, having"
+  const SYMPTOM_PHRASES = [
+    { label: 'Sore throat', pats: [/\bsore throat\b/] },
+    { label: 'Runny nose', pats: [/\brunny nose\b/] },
+    { label: 'Shortness of breath', pats: [/\bshort(ness)? of breath\b/] },
+    { label: 'Chest pain', pats: [/\bchest pain\b|\bchest tightness\b/] },
+    { label: 'Abdominal pain', pats: [/\babdominal pain\b|\bstomach pain\b|\btummy pain\b|\bbelly pain\b/] },
+    { label: 'Lower-right abdominal pain', pats: [/\brlq pain\b|\bright lower quadrant pain\b/] },
+    { label: 'Loss of smell', pats: [/\bloss of smell\b|\banosmia\b/] },
+    { label: 'Loss of taste', pats: [/\bloss of taste\b|\bageusia\b/] },
+    { label: 'Productive cough', pats: [/\bproductive (cough|sputum)\b|\bphlegm\b/] },
+    { label: 'Dry cough', pats: [/\bdry cough\b/] },
+    { label: 'High fever', pats: [/\bhigh fever\b|\bfever (of|at) \b/] },
+    { label: 'Diarrhea', pats: [/\bdiarrh(oe)a\b/] },
+    { label: 'Vomiting', pats: [/\bvomit(ing)?\b/] },
+    { label: 'Nausea', pats: [/\bnausea\b|\bnauseous\b/] },
+    { label: 'Headache', pats: [/\bheadache\b|\bthrobbing headache\b|\bmigraine\b/] },
+    { label: 'Fatigue', pats: [/\bfatigue\b|\btired(ness)?\b|\bexhausted\b/] },
+    { label: 'Wheezing', pats: [/\bwheez(ing)?\b/] },
+    { label: 'Congestion', pats: [/\bcongestion\b|\bnasal congestion\b/] },
+    { label: 'Heartburn', pats: [/\bheartburn\b|\bregurgitation\b/] },
+    { label: 'Dizziness', pats: [/\bdizz(y|iness)\b|\blightheaded\b/] },
+    { label: 'Rash', pats: [/\brash\b/] },
+  ];
 
-  // Update health data when consultations change
-  useEffect(() => {
-    setHealthData(generateHealthData(consultations));
-  }, [consultations]);
+  const SYMPTOM_TOKENS = new Set([
+    'fever','cough','headache','nausea','vomiting','diarrhea','fatigue','congestion','sneezing','wheezing','dizziness','rash','heartburn','cramps','pain','chills','myalgia'
+  ]);
+
+  const computeMonthlyData = useMemo(() => {
+    const aggregates = monthLabels.map(m => ({ month: m.label, key: m.key, consultations: 0, symptoms: 0, recovery: 0, healthScore: 100 }));
+    const byKey = Object.fromEntries(aggregates.map(a => [a.key, a]));
+
+    fullConsultations.forEach(c => {
+      const dt = new Date(c.createdAt || c.date || Date.now());
+      const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      if (!byKey[key]) return;
+      const bucket = byKey[key];
+      bucket.consultations += 1;
+      const tokens = tokenizeSymptoms(c.symptoms || '');
+      bucket.symptoms += Math.max(1, tokens.length);
+
+      // recovery days
+      if (c.recovery && c.recovery.isResolved && c.recovery.resolvedAt) {
+        const start = new Date(c.createdAt || c.date || dt);
+        const end = new Date(c.recovery.resolvedAt);
+        const diffDays = Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)));
+        bucket.recovery += diffDays;
+      }
+    });
+
+    // finalize averages and derived health score per month
+    aggregates.forEach(b => {
+      if (b.consultations > 0) {
+        b.symptoms = Math.round(b.symptoms / b.consultations);
+        // If no recovery data was present, estimate modest value (3 days)
+        b.recovery = Math.round((b.recovery || (3 * b.consultations)) / b.consultations);
+        b.healthScore = Math.max(40, 100 - b.consultations * 5);
+      } else {
+        b.symptoms = 0;
+        b.recovery = 0;
+        b.healthScore = 100;
+      }
+    });
+    return aggregates;
+  }, [fullConsultations, monthLabels]);
+
+  // Series used by charts
+  const healthData = computeMonthlyData;
 
   // Generate symptom distribution from real consultations with fallback
   const generateSymptomDistribution = (consultations) => {
@@ -73,31 +140,56 @@ const HealthAnalytics = ({ consultations = [] }) => {
       ];
     }
 
-    const symptomCounts = {};
+    // Phrase-first, then token-based counting using symptoms + transcripts
+    const counts = {};
+    const inc = (label, n=1) => { counts[label] = (counts[label] || 0) + n; };
+
     consultations.forEach(consultation => {
-      if (consultation.symptoms) {
-        const symptoms = consultation.symptoms.toLowerCase().split(/[,\s]+/).filter(s => s.length > 2);
-        symptoms.forEach(symptom => {
-          symptomCounts[symptom] = (symptomCounts[symptom] || 0) + 1;
+      const textRaw = `${consultation.symptoms || ''} ${consultation.transcript || ''}`;
+      let remaining = textRaw.toLowerCase();
+
+      SYMPTOM_PHRASES.forEach(entry => {
+        entry.pats.forEach(pat => {
+          const re = new RegExp(pat, 'g');
+          const matches = remaining.match(re);
+          if (matches && matches.length) {
+            inc(entry.label, matches.length);
+            remaining = remaining.replace(re, ' ');
+          }
         });
-      }
+      });
+
+      tokenizeSymptoms(remaining).forEach(tok => {
+        if (SYMPTOM_TOKENS.has(tok)) {
+          inc(tok.charAt(0).toUpperCase() + tok.slice(1));
+        }
+      });
     });
 
-    const totalSymptoms = Object.values(symptomCounts).reduce((sum, count) => sum + count, 0);
-    const sortedSymptoms = Object.entries(symptomCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5);
-
+    const total = Object.values(counts).reduce((s, n) => s + n, 0) || 1;
+    const entries = Object.entries(counts).sort(([,a],[,b]) => b - a);
+    const topN = entries.slice(0, 5);
     const colors = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'];
 
-    return sortedSymptoms.map(([symptom, count], index) => ({
-      name: symptom.charAt(0).toUpperCase() + symptom.slice(1),
-      value: Math.round((count / totalSymptoms) * 100),
-      color: colors[index]
+    const topData = topN.map(([name, n], index) => ({
+      name,
+      raw: n,
+      value: Math.round((n / total) * 100),
+      color: colors[index % colors.length]
     }));
+
+    const used = topN.reduce((s, [,n]) => s + n, 0);
+    const otherCount = Math.max(0, total - used);
+    const otherPct = Math.round((otherCount / total) * 100);
+
+    if (otherCount > 0) {
+      topData.push({ name: 'Other', raw: otherCount, value: otherPct, color: '#9CA3AF' });
+    }
+
+    return topData;
   };
 
-  const symptomDistribution = generateSymptomDistribution(consultations);
+  const symptomDistribution = useMemo(() => generateSymptomDistribution(fullConsultations), [fullConsultations]);
 
   // Calculate real health score based on consultation frequency and outcomes
   const calculateHealthScore = (consultations) => {
@@ -115,7 +207,7 @@ const HealthAnalytics = ({ consultations = [] }) => {
     return Math.max(baseScore - penalty, 40); // Minimum score of 40
   };
 
-  const currentHealthScore = calculateHealthScore(consultations);
+  const currentHealthScore = calculateHealthScore(fullConsultations);
   const healthScoreData = [
     { name: 'Current', value: currentHealthScore, color: '#10B981' },
     { name: 'Target', value: 100, color: '#E5E7EB' }

@@ -100,6 +100,44 @@ class ApiService {
     });
   }
 
+  async sendFollowUpEmail({ to, name, yesUrl, noUrl, followUpDate }) {
+    const subject = 'Cliniscribe: Your Follow-up Check';
+    const html = `
+      <div style="font-family:Arial, sans-serif; line-height:1.6;">
+        <p>Hello ${name || 'there'},</p>
+        <p>It's time for your follow-up on your recent health assessment.</p>
+        <p>Are you feeling better now?</p>
+        <p>
+          <a href="${yesUrl}" style="background:#16a34a;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">YES</a>
+          &nbsp;&nbsp;
+          <a href="${noUrl}" style="background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">NO</a>
+        </p>
+        ${followUpDate ? `<p><small>Scheduled follow-up: ${new Date(followUpDate).toLocaleString()}</small></p>` : ''}
+        <p>— Cliniscribe</p>
+      </div>
+    `;
+    return this.request('/email/send', {
+      method: 'POST',
+      body: { to, subject, html },
+    });
+  }
+
+  async transcribeAudio(file) {
+    const url = `${API_BASE_URL}/stt/transcribe`;
+    const form = new FormData();
+    form.append('audio', file, file.name || 'audio.webm');
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: form,
+      credentials: 'include',
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error || 'Transcription error');
+    }
+    return resp.json();
+  }
+
   // Dashboard methods
   async getDashboardStats(userId) {
     try {
